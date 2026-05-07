@@ -76,6 +76,8 @@ const Api = (() => {
     editarUsuario:   (id, body)     => put(`/usuarios/${id}`, body),
     resetPassword:   (id, body)     => put(`/usuarios/${id}/reset-password`, body),
     getRoles:        ()             => get('/usuarios/roles'),
+    getMateriasDocente: (id)       => get(`/usuarios/${id}/materias`),
+    asignarMaterias: (id, body)    => put(`/usuarios/${id}/materias`, body),
 
     // Cursos
     getCursos:       ()             => get('/cursos'),

@@ -302,6 +302,14 @@
             <label for="usuario-estado" class="form-check-label">Usuario activo</label>
           </div>
         </div>
+        <!-- Panel materias (solo visible cuando rol = DOCENTE) -->
+        <div class="mb-3 border rounded p-3 bg-light" id="usuario-materias-panel" style="display:none;">
+          <label class="form-label fw-semibold text-primary"><i class="bi bi-book me-1"></i>Materias asignadas al docente</label>
+          <p class="text-muted small mb-2">Seleccioná las materias que dicta este docente.</p>
+          <div id="usuario-materias-lista" style="max-height:200px;overflow-y:auto;">
+            <div class="text-muted small">Cargando materias…</div>
+          </div>
+        </div>
         <div id="usuario-alert" class="alert d-none"></div>
       </div>
       <div class="modal-footer">

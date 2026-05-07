@@ -182,6 +182,18 @@ CREATE TABLE auditoria (
 );
 
 -- ============================================================
+-- TABLA: docente_materias (asignación de materias a docentes)
+-- ============================================================
+CREATE TABLE docente_materias (
+    id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    docente_id       UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    materia_id       UUID NOT NULL REFERENCES materias(id) ON DELETE CASCADE,
+    asignado_por     UUID REFERENCES usuarios(id),
+    fecha_asignacion TIMESTAMP DEFAULT NOW(),
+    UNIQUE(docente_id, materia_id)
+);
+
+-- ============================================================
 -- ÍNDICES
 -- ============================================================
 CREATE INDEX idx_usuarios_email ON usuarios(email);
@@ -200,6 +212,8 @@ CREATE INDEX idx_evaluaciones_fecha ON evaluaciones(fecha);
 CREATE INDEX idx_aprobaciones_clase ON aprobaciones(clase_id);
 CREATE INDEX idx_auditoria_usuario ON auditoria(usuario_id);
 CREATE INDEX idx_auditoria_timestamp ON auditoria(timestamp);
+CREATE INDEX idx_docente_materias_docente ON docente_materias(docente_id);
+CREATE INDEX idx_docente_materias_materia ON docente_materias(materia_id);
 
 -- ============================================================
 -- DATOS INICIALES: Roles
@@ -214,14 +228,20 @@ INSERT INTO roles (id, nombre, descripcion, permisos) VALUES
 (
     uuid_generate_v4(),
     'DIRECTIVO',
-    'Directivo institucional. Puede aprobar/rechazar clases, bloquear fechas y ver auditoría.',
-    '{"clases": ["ver","aprobar","rechazar"],"aprobaciones": ["crear","ver"],"evaluaciones": ["crear","ver","bloquear"],"auditoria": ["ver"],"reportes": ["ver","exportar"],"usuarios": ["ver","gestionar"]}'::jsonb
+    'Directivo institucional. Puede aprobar/rechazar clases, bloquear fechas y gestionar usuarios.',
+    '{"clases": ["ver","aprobar","rechazar"],"aprobaciones": ["crear","ver"],"evaluaciones": ["crear","ver","bloquear"],"reportes": ["ver","exportar"],"usuarios": ["ver","gestionar"]}'::jsonb
 ),
 (
     uuid_generate_v4(),
     'ASESOR_PEDAGOGICO',
     'Asesor pedagógico. Puede revisar contenido y emitir recomendaciones.',
     '{"clases": ["ver","aprobar","rechazar"],"aprobaciones": ["crear","ver"],"evaluaciones": ["ver"],"reportes": ["ver","exportar"]}'::jsonb
+),
+(
+    uuid_generate_v4(),
+    'ADMINISTRADOR',
+    'Administrador del sistema. Acceso total: gestión de usuarios, roles, auditoría y configuración.',
+    '{"clases": ["ver","aprobar","rechazar"],"aprobaciones": ["crear","ver"],"evaluaciones": ["crear","ver","bloquear"],"auditoria": ["ver","exportar"],"reportes": ["ver","exportar"],"usuarios": ["ver","gestionar","crear","editar","eliminar"],"materias": ["ver","crear","editar"],"cursos": ["ver","crear","editar"],"roles": ["ver"]}'::jsonb
 );
 
 -- ============================================================
@@ -237,7 +257,7 @@ INSERT INTO usuarios (id, email, password_hash, nombre, apellido, rol_id, estado
     '$2b$10$hoieJG9am9Me6M/1pOz0QOcz.kwPaH5qJmBcec0L103RMIO0PSeSS',
     'Admin',
     'Sistema',
-    (SELECT id FROM roles WHERE nombre = 'DIRECTIVO'),
+    (SELECT id FROM roles WHERE nombre = 'ADMINISTRADOR'),
     TRUE
 ),
 (
@@ -294,6 +314,15 @@ INSERT INTO materias (nombre, codigo, horas_semanales, activa, curso_id, docente
 SELECT 'Historia', 'HIS01', 3, TRUE, c.id, u.id
 FROM cursos c, usuarios u
 WHERE c.nombre = '2° Año A' AND u.email = 'docente@sgca.edu.ar';
+
+-- ============================================================
+-- DATOS INICIALES: Asignación de materias a docentes
+-- ============================================================
+INSERT INTO docente_materias (docente_id, materia_id)
+SELECT u.id, m.id
+FROM usuarios u, materias m
+WHERE u.email = 'docente@sgca.edu.ar'
+ON CONFLICT (docente_id, materia_id) DO NOTHING;
 
 -- ============================================================
 -- FUNCIÓN: Actualizar fecha_actualizacion en clases

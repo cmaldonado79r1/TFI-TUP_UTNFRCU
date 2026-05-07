@@ -11,7 +11,7 @@ const verifyToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Verificar que el usuario sigue activo
     const result = await query(
       `SELECT u.id, u.email, u.nombre, u.apellido, u.estado, r.nombre as rol
@@ -46,8 +46,9 @@ const requireRol = (...roles) => {
   };
 };
 
-const requireDirectivoOAsesor = requireRol('DIRECTIVO', 'ASESOR_PEDAGOGICO');
-const requireDocente           = requireRol('DOCENTE', 'DIRECTIVO', 'ASESOR_PEDAGOGICO');
-const requireDirectivo         = requireRol('DIRECTIVO');
+const requireDirectivoOAsesor = requireRol('DIRECTIVO', 'ASESOR_PEDAGOGICO', 'ADMINISTRADOR');
+const requireDocente           = requireRol('DOCENTE', 'DIRECTIVO', 'ASESOR_PEDAGOGICO', 'ADMINISTRADOR');
+const requireDirectivo         = requireRol('DIRECTIVO', 'ADMINISTRADOR');
+const requireAdministrador     = requireRol('ADMINISTRADOR');
 
-module.exports = { verifyToken, requireRol, requireDirectivoOAsesor, requireDocente, requireDirectivo };
+module.exports = { verifyToken, requireRol, requireDirectivoOAsesor, requireDocente, requireDirectivo, requireAdministrador };

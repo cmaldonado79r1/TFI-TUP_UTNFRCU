@@ -17,21 +17,30 @@ const App = (() => {
     ],
     DIRECTIVO: [
       { id: 'dashboard',    label: 'Inicio',        icon: 'speedometer2' },
-      { id: 'aprobaciones', label: 'Bandeja',        icon: 'clipboard2-check', badge: 'pendientes' },
-      { id: 'clases',       label: 'Clases',         icon: 'journal-text' },
+      { id: 'aprobaciones', label: 'Bandeja',       icon: 'clipboard2-check', badge: 'pendientes' },
+      { id: 'clases',       label: 'Clases',        icon: 'journal-text' },
       { id: 'evaluaciones', label: 'Evaluaciones',  icon: 'calendar-check' },
       { id: 'documentos',   label: 'Documentos',    icon: 'folder2-open' },
-      { id: 'reportes',     label: 'Reportes',       icon: 'file-earmark-bar-graph' },
-      { id: 'usuarios',     label: 'Usuarios',       icon: 'people' },
-      { id: 'auditoria',    label: 'Auditoría',      icon: 'shield-check' },
+      { id: 'reportes',     label: 'Reportes',      icon: 'file-earmark-bar-graph' },
+      { id: 'usuarios',     label: 'Usuarios',      icon: 'people' },
+    ],
+    ADMINISTRADOR: [
+      { id: 'dashboard',    label: 'Inicio',        icon: 'speedometer2' },
+      { id: 'aprobaciones', label: 'Bandeja',       icon: 'clipboard2-check', badge: 'pendientes' },
+      { id: 'clases',       label: 'Clases',        icon: 'journal-text' },
+      { id: 'evaluaciones', label: 'Evaluaciones',  icon: 'calendar-check' },
+      { id: 'documentos',   label: 'Documentos',    icon: 'folder2-open' },
+      { id: 'reportes',     label: 'Reportes',      icon: 'file-earmark-bar-graph' },
+      { id: 'usuarios',     label: 'Usuarios',      icon: 'people' },
+      { id: 'auditoria',    label: 'Auditoría',     icon: 'shield-check' },
     ],
     ASESOR_PEDAGOGICO: [
       { id: 'dashboard',    label: 'Inicio',        icon: 'speedometer2' },
-      { id: 'aprobaciones', label: 'Bandeja',        icon: 'clipboard2-check', badge: 'pendientes' },
-      { id: 'clases',       label: 'Clases',         icon: 'journal-text' },
+      { id: 'aprobaciones', label: 'Bandeja',       icon: 'clipboard2-check', badge: 'pendientes' },
+      { id: 'clases',       label: 'Clases',        icon: 'journal-text' },
       { id: 'evaluaciones', label: 'Evaluaciones',  icon: 'calendar-check' },
       { id: 'documentos',   label: 'Documentos',    icon: 'folder2-open' },
-      { id: 'reportes',     label: 'Reportes',       icon: 'file-earmark-bar-graph' },
+      { id: 'reportes',     label: 'Reportes',      icon: 'file-earmark-bar-graph' },
     ],
   };
 
@@ -109,7 +118,7 @@ const App = (() => {
     renderNav();
     navigate('dashboard');
     // Actualizar badge de pendientes periódicamente
-    if (['DIRECTIVO', 'ASESOR_PEDAGOGICO'].includes(_user?.rol)) {
+    if (['DIRECTIVO', 'ASESOR_PEDAGOGICO', 'ADMINISTRADOR'].includes(_user?.rol)) {
       actualizarBadgePendientes();
       setInterval(actualizarBadgePendientes, 60000);
     }
@@ -118,7 +127,7 @@ const App = (() => {
   const renderNav = () => {
     document.getElementById('nav-user-name').textContent =
       `${_user?.nombre || ''} ${_user?.apellido || ''}`;
-    const rolLabels = { DOCENTE: 'Docente', DIRECTIVO: 'Directivo', ASESOR_PEDAGOGICO: 'Asesor Pedagógico' };
+    const rolLabels = { DOCENTE: 'Docente', DIRECTIVO: 'Directivo', ASESOR_PEDAGOGICO: 'Asesor Pedagógico', ADMINISTRADOR: 'Administrador' };
     document.getElementById('nav-rol-badge').textContent = rolLabels[_user?.rol] || _user?.rol;
 
     const navLinks = document.getElementById('nav-links');

@@ -1,6 +1,7 @@
 /* ── Vista Usuarios ──────────────────────────────────────── */
 const UsuariosView = (() => {
-  let _roles = [];
+  let _roles    = [];
+  let _materias = [];
 
   const render = async () => {
     const mc = document.getElementById('main-content');
@@ -19,6 +20,7 @@ const UsuariosView = (() => {
                 <option value="DOCENTE">Docente</option>
                 <option value="DIRECTIVO">Directivo</option>
                 <option value="ASESOR_PEDAGOGICO">Asesor Pedagógico</option>
+                <option value="ADMINISTRADOR">Administrador</option>
               </select></div>
             <div class="col-sm-3"><label class="form-label small mb-1">Estado</label>
               <select id="filtro-estado-usr" class="form-select form-select-sm">
@@ -35,7 +37,8 @@ const UsuariosView = (() => {
       <div id="usuarios-container"></div>
     </div>`;
 
-    try { _roles = await Api.getRoles(); } catch(e) {}
+    try { _roles    = await Api.getRoles(); }    catch(e) {}
+    try { _materias = await Api.getMaterias(); } catch(e) {}
 
     document.getElementById('btn-nuevo-usuario').addEventListener('click', () => abrirModalUsuario());
     document.getElementById('btn-filtrar-usr').addEventListener('click', cargarUsuarios);
@@ -62,16 +65,20 @@ const UsuariosView = (() => {
                 ${usuarios.map(u => `<tr>
                   <td><strong>${u.apellido}, ${u.nombre}</strong></td>
                   <td>${u.email}</td>
-                  <td><span class="badge ${rolColor(u.rol)}">${u.rol.replace('_', ' ')}</span></td>
+                  <td><span class="badge ${rolColor(u.rol)}">${rolLabel(u.rol)}</span></td>
                   <td>${u.estado
                     ? '<span class="badge bg-success">Activo</span>'
                     : '<span class="badge bg-danger">Inactivo</span>'}</td>
                   <td class="text-muted small">${UI.fechaHora(u.ultimo_acceso)}</td>
                   <td>
                     <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" data-editar-usr='${JSON.stringify(u)}' title="Editar">
+                      <button class="btn btn-outline-primary" data-editar-usr='${JSON.stringify(u).replace(/'/g, "&#39;")}' title="Editar">
                         <i class="bi bi-pencil"></i>
                       </button>
+                      ${u.rol === 'DOCENTE' ? `
+                      <button class="btn btn-outline-info" data-materias-usr="${u.id}" data-nombre="${u.nombre} ${u.apellido}" title="Asignar materias">
+                        <i class="bi bi-book"></i>
+                      </button>` : ''}
                       <button class="btn btn-outline-warning" data-reset-pwd="${u.id}" title="Resetear contraseña">
                         <i class="bi bi-key"></i>
                       </button>
@@ -90,6 +97,9 @@ const UsuariosView = (() => {
         btn.addEventListener('click', () => {
           try { abrirModalUsuario(JSON.parse(btn.dataset.editarUsr)); } catch(e) {}
         });
+      });
+      document.querySelectorAll('[data-materias-usr]').forEach(btn => {
+        btn.addEventListener('click', () => abrirModalMaterias(btn.dataset.materiasUsr, btn.dataset.nombre));
       });
       document.querySelectorAll('[data-reset-pwd]').forEach(btn => {
         btn.addEventListener('click', () => resetearPassword(btn.dataset.resetPwd));
@@ -111,8 +121,11 @@ const UsuariosView = (() => {
     }
   };
 
-  const abrirModalUsuario = (usuario = null) => {
-    const isEditar = !!usuario;
+  /* ── Modal crear/editar usuario ─────────────────────────── */
+  const abrirModalUsuario = async (usuario = null) => {
+    const isEditar  = !!usuario;
+    const esDocente = usuario?.rol === 'DOCENTE';
+
     document.getElementById('modal-usuario-title').textContent = isEditar ? 'Editar Usuario' : 'Nuevo Usuario';
     document.getElementById('usuario-id').value       = usuario?.id || '';
     document.getElementById('usuario-nombre').value   = usuario?.nombre || '';
@@ -122,8 +135,56 @@ const UsuariosView = (() => {
     document.getElementById('usuario-estado').checked = usuario ? usuario.estado : true;
     document.getElementById('usuario-password-group').style.display = isEditar ? 'none' : 'block';
     UI.clearAlert('usuario-alert');
-    UI.fillSelect('usuario-rol', _roles, 'id', 'nombre', 'Seleccione rol...');
-    if (usuario?.rol_id) document.getElementById('usuario-rol').value = usuario.rol_id;
+
+    // Poblar select de roles con labels legibles
+    const rolSel = document.getElementById('usuario-rol');
+    rolSel.innerHTML = '<option value="">Seleccione rol...</option>' +
+      _roles.map(r => `<option value="${r.id}">${rolLabel(r.nombre)}</option>`).join('');
+    if (usuario?.rol_id) rolSel.value = usuario.rol_id;
+
+    // Mostrar/ocultar panel de materias según el rol seleccionado
+    const rolSelect = document.getElementById('usuario-rol');
+    const materiasPanel = document.getElementById('usuario-materias-panel');
+
+    const toggleMateriasPanel = () => {
+      const rolSeleccionado = _roles.find(r => r.id === rolSelect.value);
+      if (rolSeleccionado?.nombre === 'DOCENTE') {
+        materiasPanel.style.display = 'block';
+      } else {
+        materiasPanel.style.display = 'none';
+      }
+    };
+    rolSelect.removeEventListener('change', toggleMateriasPanel);
+    rolSelect.addEventListener('change', toggleMateriasPanel);
+
+    // Cargar lista de materias disponibles con checkboxes
+    const materiasLista = document.getElementById('usuario-materias-lista');
+    materiasLista.innerHTML = '<div class="text-muted small">Cargando materias…</div>';
+
+    // Mostrar el panel si ya es DOCENTE
+    toggleMateriasPanel();
+
+    if (_materias.length) {
+      let materiasAsignadas = [];
+      if (isEditar && esDocente) {
+        try {
+          const asignadas = await Api.getMateriasDocente(usuario.id);
+          materiasAsignadas = asignadas.map(m => m.materia_id);
+        } catch(e) {}
+      }
+      materiasLista.innerHTML = _materias.map(m => `
+        <div class="form-check">
+          <input class="form-check-input materia-check" type="checkbox"
+                 id="mat-${m.id}" value="${m.id}"
+                 ${materiasAsignadas.includes(m.id) ? 'checked' : ''}>
+          <label class="form-check-label small" for="mat-${m.id}">
+            <strong>${m.nombre}</strong>
+            <span class="text-muted">${m.curso_nombre ? ' · ' + m.curso_nombre : ''}</span>
+          </label>
+        </div>`).join('');
+    } else {
+      materiasLista.innerHTML = '<p class="text-muted small mb-0">No hay materias disponibles.</p>';
+    }
 
     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-usuario'));
     modal.show();
@@ -137,12 +198,21 @@ const UsuariosView = (() => {
         UI.modalAlert('usuario-alert', 'Todos los campos obligatorios deben completarse');
         return;
       }
+
+      // Obtener materias seleccionadas
+      const materia_ids = [...document.querySelectorAll('.materia-check:checked')].map(c => c.value);
+      const rolSeleccionado = _roles.find(r => r.id === rol_id);
+
       try {
         const payload = {
           nombre, apellido, email, rol_id,
           estado: document.getElementById('usuario-estado').checked,
         };
+        if (rolSeleccionado?.nombre === 'DOCENTE') {
+          payload.materia_ids = materia_ids;
+        }
         if (!isEditar) payload.password = UI.getVal('usuario-password');
+
         if (isEditar) {
           await Api.editarUsuario(document.getElementById('usuario-id').value, payload);
           UI.toast('Usuario actualizado correctamente', 'success');
@@ -160,6 +230,68 @@ const UsuariosView = (() => {
     };
   };
 
+  /* ── Modal asignar materias (acceso rápido desde tabla) ──── */
+  const abrirModalMaterias = async (docenteId, nombreDocente) => {
+    // Reutilizamos un modal de confirmación simple con checkboxes
+    let materiasAsignadas = [];
+    try {
+      const asignadas = await Api.getMateriasDocente(docenteId);
+      materiasAsignadas = asignadas.map(m => m.materia_id);
+    } catch(e) {}
+
+    const checkboxes = _materias.map(m => `
+      <div class="form-check">
+        <input class="form-check-input mat-asig-check" type="checkbox"
+               id="asig-mat-${m.id}" value="${m.id}"
+               ${materiasAsignadas.includes(m.id) ? 'checked' : ''}>
+        <label class="form-check-label small" for="asig-mat-${m.id}">
+          <strong>${m.nombre}</strong>
+          ${m.curso_nombre ? `<span class="text-muted"> · ${m.curso_nombre}</span>` : ''}
+        </label>
+      </div>`).join('');
+
+    // Usar el modal de usuario con un título diferente
+    document.getElementById('modal-usuario-title').textContent = `Materias de ${nombreDocente}`;
+    document.getElementById('usuario-id').value = docenteId;
+
+    // Ocultar campos de usuario y mostrar solo materias
+    ['usuario-nombre','usuario-apellido','usuario-email',
+     'usuario-password-group','usuario-rol','usuario-estado'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.closest('.mb-3') && (el.closest('.mb-3').style.display = 'none');
+    });
+
+    const materiasPanel = document.getElementById('usuario-materias-panel');
+    materiasPanel.style.display = 'block';
+    document.getElementById('usuario-materias-lista').innerHTML =
+      checkboxes || '<p class="text-muted small mb-0">No hay materias disponibles.</p>';
+
+    UI.clearAlert('usuario-alert');
+
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-usuario'));
+    modal.show();
+
+    // Al cerrar, restaurar campos ocultos
+    const restoreForm = () => {
+      ['usuario-nombre','usuario-apellido','usuario-email',
+       'usuario-password-group','usuario-rol','usuario-estado'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el?.closest('.mb-3')) el.closest('.mb-3').style.display = '';
+      });
+    };
+    document.getElementById('modal-usuario').addEventListener('hidden.bs.modal', restoreForm, { once: true });
+
+    document.getElementById('btn-guardar-usuario').onclick = async () => {
+      const materia_ids = [...document.querySelectorAll('.mat-asig-check:checked')].map(c => c.value);
+      try {
+        await Api.asignarMaterias(docenteId, { materia_ids });
+        UI.toast('Materias asignadas correctamente', 'success');
+        modal.hide();
+        cargarUsuarios();
+      } catch(err) { UI.modalAlert('usuario-alert', err.message); }
+    };
+  };
+
   const resetearPassword = async (userId) => {
     const nuevaPass = prompt('Ingrese la nueva contraseña (mínimo 8 caracteres):');
     if (!nuevaPass) return;
@@ -171,8 +303,23 @@ const UsuariosView = (() => {
   };
 
   const rolColor = (rol) => {
-    const m = { DOCENTE: 'bg-primary', DIRECTIVO: 'bg-danger', ASESOR_PEDAGOGICO: 'bg-warning text-dark' };
+    const m = {
+      DOCENTE:           'bg-primary',
+      DIRECTIVO:         'bg-danger',
+      ASESOR_PEDAGOGICO: 'bg-warning text-dark',
+      ADMINISTRADOR:     'bg-dark',
+    };
     return m[rol] || 'bg-secondary';
+  };
+
+  const rolLabel = (rol) => {
+    const m = {
+      DOCENTE:           'Docente',
+      DIRECTIVO:         'Directivo',
+      ASESOR_PEDAGOGICO: 'Asesor Pedagógico',
+      ADMINISTRADOR:     'Administrador',
+    };
+    return m[rol] || rol.replace(/_/g, ' ');
   };
 
   return { render };

@@ -84,7 +84,7 @@ cd TFI-TUP_UTNFRCU
 docker-compose up --build
 ```
 
-La aplicación estará disponible en: **http://localhost:3000**
+La aplicación estará disponible en: **http://localhost:3000** (se hicieron las pruebas en maquinas virtuales locales)
 
 ---
 
@@ -119,7 +119,7 @@ node server.js
 | `docente@sgca.edu.ar` | Docente | `password` |
 | `asesor@sgca.edu.ar` | Asesor Pedagógico | `password` |
 
-> ⚠️ Cambiar las contraseñas en un entorno de producción.
+> ⚠️ Cambiar las contraseñas en un entorno de producción. 
 
 ---
 
@@ -165,4 +165,4 @@ MAIL_PASS=tu_app_password
 
 ## Licencia
 
-Proyecto académico – UTN FRCU © 2025
+(SOLO PARA USO ACADEMICO, LAS MEDIDAS DE SEGURIDAD DEL PROYECTO NO ESTAN PREPARADAS PARA PRODUCCION, NO SE HAN ENDURECIDO CORRECTAMENTE) 

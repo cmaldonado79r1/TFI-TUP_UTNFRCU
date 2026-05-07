@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+
+  # ── Base de datos PostgreSQL ──────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: sgca_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       sgca_db
+      POSTGRES_USER:     sgca_user
+      POSTGRES_PASSWORD: sgca_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sgca_user -d sgca_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sgca_net
+
+  # ── Backend Node.js / Express ─────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sgca_backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV:     production
+      PORT:         3000
+      DB_HOST:      db
+      DB_PORT:      5432
+      DB_NAME:      sgca_db
+      DB_USER:      sgca_user
+      DB_PASSWORD:  sgca_password
+      JWT_SECRET:   sgca_jwt_super_secret_key_2025_tfi_utn
+      JWT_EXPIRES_IN: 8h
+      MAIL_HOST:    ""
+      MAIL_PORT:    587
+      MAIL_USER:    ""
+      MAIL_PASS:    ""
+      MAIL_FROM:    "SGCA <noreply@sgca.edu.ar>"
+      UPLOAD_DIR:   /app/uploads
+      MAX_FILE_SIZE: 10485760
+    volumes:
+      - uploads:/app/uploads
+      - ./frontend:/app/../frontend:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - sgca_net
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  sgca_net:
+    driver: bridge

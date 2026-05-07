@@ -1,0 +1,210 @@
+/* ============================================================
+   SGCA – Estilos principales
+   ============================================================ */
+
+:root {
+  --sgca-primary:     #1a3a5c;
+  --sgca-primary-lt:  #2563a8;
+  --sgca-secondary:   #e8f0fe;
+  --sgca-accent:      #3b82f6;
+  --sgca-success:     #198754;
+  --sgca-danger:      #dc3545;
+  --sgca-warning:     #ffc107;
+  --sgca-info:        #0dcaf0;
+  --sgca-muted:       #6c757d;
+  --sgca-border:      #dee2e6;
+  --sgca-bg:          #f1f5f9;
+  --sidebar-w:        240px;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--sgca-bg); color: #212529; }
+
+/* ── Custom primary color ───────────────────────────────────── */
+.bg-primary-custom  { background-color: var(--sgca-primary) !important; }
+.text-primary-custom{ color: var(--sgca-primary) !important; }
+.btn-primary        { background-color: var(--sgca-primary-lt); border-color: var(--sgca-primary-lt); }
+.btn-primary:hover  { background-color: var(--sgca-primary);   border-color: var(--sgca-primary); }
+
+/* ── Navbar ─────────────────────────────────────────────────── */
+.navbar { min-height: 56px; }
+.navbar-brand { font-size: 1.2rem; letter-spacing: 0.5px; }
+
+/* ── Layout principal ───────────────────────────────────────── */
+#main-content { min-height: calc(100vh - 56px); }
+
+/* ── Sidebar nav tabs ───────────────────────────────────────── */
+.nav-pills .nav-link.active,
+.nav-pills .show>.nav-link {
+  background-color: var(--sgca-primary-lt);
+}
+.nav-pills .nav-link { color: var(--sgca-primary); }
+.nav-pills .nav-link:hover { background-color: var(--sgca-secondary); }
+
+/* ── Cards ──────────────────────────────────────────────────── */
+.card { border: 1px solid var(--sgca-border); border-radius: 10px; }
+.card-header { border-bottom: 1px solid var(--sgca-border); }
+
+.stat-card {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+  transition: transform .15s;
+}
+.stat-card:hover { transform: translateY(-3px); }
+.stat-card .display-6 { font-size: 2.2rem; font-weight: 700; }
+
+/* ── Estado badges ──────────────────────────────────────────── */
+.badge-estado {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: .3px;
+}
+.estado-CREADO           { background:#e9ecef; color:#495057; }
+.estado-PENDIENTE        { background:#fff3cd; color:#856404; }
+.estado-REVISION_REQUERIDA { background:#f8d7da; color:#842029; }
+.estado-APROBADO         { background:#d1e7dd; color:#0f5132; }
+.estado-INMUTABLE        { background:#cfe2ff; color:#084298; }
+
+/* ── Tabla ──────────────────────────────────────────────────── */
+.table-sgca { font-size: .9rem; }
+.table-sgca thead th {
+  background: var(--sgca-primary);
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+  border: none;
+  padding: 10px 14px;
+}
+.table-sgca tbody tr:hover { background: var(--sgca-secondary); }
+.table-sgca td { vertical-align: middle; padding: 9px 14px; }
+
+/* ── Formulario de clase ────────────────────────────────────── */
+.tema-row, .actividad-row {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 10px;
+  position: relative;
+  transition: box-shadow .15s;
+}
+.tema-row:hover, .actividad-row:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.btn-remove-row {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  line-height: 1;
+  border-radius: 50%;
+}
+.drag-handle { cursor: grab; color: #adb5bd; font-size: 1.1rem; }
+.drag-handle:active { cursor: grabbing; }
+
+/* ── Timeline de estados ────────────────────────────────────── */
+.timeline { position: relative; padding-left: 24px; }
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 0; bottom: 0;
+  width: 2px;
+  background: #dee2e6;
+}
+.timeline-item { position: relative; margin-bottom: 16px; }
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -19px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--sgca-primary-lt);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px var(--sgca-primary-lt);
+}
+
+/* ── Loader ─────────────────────────────────────────────────── */
+.sgca-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.sgca-loader .spinner-border { width: 2.5rem; height: 2.5rem; color: var(--sgca-primary-lt); }
+
+/* ── Empty state ────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--sgca-muted);
+}
+.empty-state i { font-size: 3rem; margin-bottom: 12px; display: block; }
+
+/* ── Paso a paso del formulario de clase ────────────────────── */
+.wizard-steps { display: flex; gap: 0; margin-bottom: 24px; overflow: hidden; border-radius: 8px; }
+.wizard-step {
+  flex: 1;
+  text-align: center;
+  padding: 10px 6px;
+  background: #e9ecef;
+  font-size: .82rem;
+  font-weight: 600;
+  color: #6c757d;
+  position: relative;
+  transition: background .2s, color .2s;
+}
+.wizard-step.active   { background: var(--sgca-primary-lt); color: #fff; }
+.wizard-step.done     { background: #198754; color: #fff; }
+.wizard-step .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.3);
+  margin-right: 6px;
+  font-size: .75rem;
+}
+
+/* ── Imprevisto severidad ───────────────────────────────────── */
+.sev-BAJA  { color: #198754; }
+.sev-MEDIA { color: #fd7e14; }
+.sev-ALTA  { color: #dc3545; }
+
+/* ── Paginación ─────────────────────────────────────────────── */
+.pagination .page-link { color: var(--sgca-primary); }
+.pagination .page-item.active .page-link {
+  background-color: var(--sgca-primary-lt);
+  border-color: var(--sgca-primary-lt);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 576px) {
+  .table-sgca { font-size: .78rem; }
+  .table-sgca td, .table-sgca th { padding: 6px 8px; }
+  .stat-card .display-6 { font-size: 1.6rem; }
+  .wizard-step .d-none-sm { display: none; }
+}
+
+/* ── Print ──────────────────────────────────────────────────── */
+@media print {
+  .navbar, .btn, .modal, .toast-container { display: none !important; }
+  #main-content { padding: 0 !important; }
+  .card { border: 1px solid #ccc !important; box-shadow: none !important; }
+}
+
+/* ── Animaciones ────────────────────────────────────────────── */
+.fade-in {
+  animation: fadeIn .3s ease forwards;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

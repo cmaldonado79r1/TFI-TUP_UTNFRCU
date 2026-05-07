@@ -1,7 +1,7 @@
 # SGCA – Sistema de Gestión de Contenido Áulico
 
 **Trabajo Final Integrador – Técnico Universitario en Programación**  
-**UTN Facultad Regional Concordia**
+**UTN Facultad Regional Concepcion del Uruguay**
 
 ---
 

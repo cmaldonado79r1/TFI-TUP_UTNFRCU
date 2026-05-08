@@ -1,0 +1,153 @@
+@startuml SGCA_Secuencia_Registro
+
+!define PRIMARYCOLOR #3498DB
+
+skinparam backgroundColor #FEFEFE
+skinparam sequenceActorBorderColor PRIMARYCOLOR
+skinparam sequenceActorBackgroundColor #E8F4F8
+skinparam sequenceLifeLineBorderColor PRIMARYCOLOR
+skinparam sequenceParticipantBorderColor PRIMARYCOLOR
+skinparam sequenceArrowColor PRIMARYCOLOR
+skinparam noteBkgColor #FFFFCC
+skinparam defaultFontSize 9
+
+title SGCA - Flujo de Registro de Contenido Áulico
+
+actor Docente       as doc
+actor "Directivo /\nAdmin"  as dir
+participant "UI Browser"    as ui
+participant "API Backend"   as api
+database "PostgreSQL"       as db
+participant "Email\nService" as email
+
+== Autenticación ==
+doc -> ui: Accede al sistema
+ui -> api: POST /api/auth/login {email, pwd}
+api -> db: SELECT usuario + rol WHERE email=?
+db --> api: Usuario + rol encontrado
+api -> api: Verificar bcrypt hash
+api --> ui: JWT Token + datos de rol
+ui --> doc: Dashboard personalizado según rol
+
+== [Docente] Seleccionar Materia y Validar Fecha ==
+doc -> ui: Click: Nueva Clase
+ui -> api: GET /api/materias?docente_id=me
+note right of api
+  DOCENTE: solo ve sus propias materias
+  asignadas via docente_materias.
+  DIRECTIVO/ADMIN: ve todas las materias.
+end note
+api -> db: SELECT materias JOIN docente_materias\nWHERE docente_id = :userId
+db --> api: Lista de materias propias
+api --> ui: Materias disponibles
+ui --> doc: Combo de materias + formulario vacío
+
+doc -> ui: Selecciona materia y fecha
+ui -> api: GET /api/evaluaciones/validar?fecha=X&materia=Y
+api -> db: SELECT evaluaciones WHERE fecha=X AND materia=Y\nAND bloqueada=TRUE
+db --> api: Resultado validación
+alt Fecha disponible
+  api --> ui: 200 OK
+else Fecha bloqueada por evaluación
+  api --> ui: 409 Conflict
+  ui --> doc: Alerta: Fecha ocupada por evaluación
+end
+
+== [Docente] Completar y Guardar Clase ==
+doc -> ui: Completa campos (temas, actividades,\ncarácter, imprevistos)
+note right of doc
+  Campos requeridos:
+  - Al menos 1 tema
+  - Carácter de clase
+  - Fecha válida
+end note
+doc -> ui: Click "Guardar"
+ui -> ui: Validar JS (campos requeridos)
+ui -> api: POST /api/clases {datos, JWT}
+
+api -> api: verifyToken → extraer userId + rol
+api -> db: BEGIN TRANSACTION
+api -> db: INSERT INTO clases (estado=PENDIENTE)
+db --> api: clase_id generado
+api -> db: INSERT INTO temas (clase_id, ...)
+api -> db: INSERT INTO actividades (clase_id, ...)
+api -> db: INSERT INTO imprevistos (clase_id, ...) [si hay]
+api -> db: INSERT INTO auditoria (accion=INSERT, tabla=clases)
+api -> db: COMMIT
+db --> api: Transacción exitosa
+
+api -> email: Notificar: nueva clase pendiente de revisión
+email --> api: OK
+api --> ui: 201 Created {clase}
+ui --> doc: Toast: "Clase registrada. Estado: PENDIENTE"
+
+== [Directivo/Admin] Aprobar o Rechazar ==
+dir -> ui: Accede a "Aprobaciones pendientes"
+ui -> api: GET /api/aprobaciones/pendientes
+api -> db: SELECT clases JOIN materias\nWHERE estado=PENDIENTE
+db --> api: Lista de clases pendientes
+api --> ui: Clases pendientes
+ui --> dir: Tabla de registros a revisar
+
+dir -> ui: Click "Aprobar" / "Rechazar (+ comentario)"
+ui -> api: POST /api/aprobaciones {clase_id, estado, comentarios, JWT}
+api -> api: requireDirectivo → verificar rol
+api -> db: BEGIN TRANSACTION
+api -> db: UPDATE clases SET estado=APROBADO / REVISION_REQUERIDA,\naprobador_id=:userId
+api -> db: INSERT INTO aprobaciones (clase_id, estado, comentarios)
+api -> db: INSERT INTO auditoria (accion=UPDATE, tabla=clases)
+api -> db: COMMIT
+db --> api: OK
+
+api -> email: Notificar al Docente: clase aprobada/rechazada
+email --> api: OK
+api --> ui: 200 OK
+ui --> dir: Toast: "Registro aprobado/rechazado"
+
+== [Directivo/Admin] Crear Materia (nueva funcionalidad) ==
+dir -> ui: Accede a "Materias" → "Nueva Materia"
+ui -> api: GET /api/cursos (cargar combo cursos)
+ui -> api: GET /api/usuarios?rol=DOCENTE (cargar combo docentes)
+api --> ui: Cursos y docentes disponibles
+dir -> ui: Completa: nombre, código, curso\n[docente es opcional]
+dir -> ui: Click "Guardar"
+ui -> api: POST /api/materias {nombre, curso_id, docente_id?, JWT}
+api -> api: requireDirectivo → verificar rol
+api -> db: INSERT INTO materias (nombre, curso_id, docente_id)
+note right of db
+  docente_id puede ser NULL:
+  la materia se crea sin asignar
+  docente todavía.
+end note
+api -> db: INSERT INTO auditoria
+db --> api: materia creada
+alt Docente seleccionado
+  api -> db: UPDATE materias SET docente_id=:id
+  api -> db: INSERT INTO docente_materias (docente_id, materia_id)
+end
+api --> ui: 201 Created {materia}
+ui --> dir: Toast: "Materia creada exitosamente"
+
+== [Docente] Gestionar Actividades por Materia ==
+doc -> ui: Accede a "Actividades"
+ui -> api: GET /api/materias?docente_id=me
+api --> ui: Materias del docente
+doc -> ui: Selecciona una materia
+ui -> api: GET /api/clases?materia_id=X
+api --> ui: Clases de esa materia (con estado)
+doc -> ui: Expande una clase → ve actividades
+ui -> api: GET /api/actividades/clase/:clase_id
+api --> ui: Actividades existentes
+doc -> ui: Click "Agregar actividad"
+ui -> api: POST /api/actividades {clase_id, nombre, tipo, JWT}
+note right of api
+  Valida que la clase NO sea INMUTABLE
+  ni esté en estado aprobado.
+  Si está bloqueada → 403 Forbidden.
+end note
+api -> db: INSERT INTO actividades
+api -> db: INSERT INTO auditoria
+api --> ui: 201 Created {actividad}
+ui --> doc: Actividad agregada en la tabla
+
+@enduml

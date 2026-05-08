@@ -1,0 +1,204 @@
+@startuml SGCA_BaseDatos
+
+!define PRIMARYCOLOR #3498DB
+
+skinparam backgroundColor #FEFEFE
+skinparam entityBackgroundColor #E8F4F8
+skinparam entityBorderColor PRIMARYCOLOR
+skinparam relationshipColor PRIMARYCOLOR
+skinparam defaultFontSize 9
+
+title SISTEMA DE GESTIÓN DE CONTENIDO ÁULICO\nDiagrama de Base de Datos (PostgreSQL)
+
+' ── Entidades ──────────────────────────────────────
+
+entity usuarios {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  email: VARCHAR(255) UNIQUE NOT NULL
+  password_hash: VARCHAR(255) NOT NULL
+  nombre: VARCHAR(100) NOT NULL
+  apellido: VARCHAR(100) NOT NULL
+  rol_id: UUID <<FK → roles.id>>
+  estado: BOOLEAN DEFAULT TRUE
+  fecha_creacion: TIMESTAMP DEFAULT NOW()
+  ultimo_acceso: TIMESTAMP
+}
+
+entity roles {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  nombre: VARCHAR(50) UNIQUE NOT NULL
+  descripcion: TEXT
+  permisos: JSONB
+  fecha_creacion: TIMESTAMP DEFAULT NOW()
+  ..
+  Valores: DOCENTE | DIRECTIVO
+  ASESOR_PEDAGOGICO | ADMINISTRADOR
+}
+
+entity cursos {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  nombre: VARCHAR(100) NOT NULL
+  nivel: INTEGER
+  turno: VARCHAR(20)
+  anio_lectivo: INTEGER
+  activo: BOOLEAN DEFAULT TRUE
+  fecha_creacion: TIMESTAMP DEFAULT NOW()
+}
+
+entity materias {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  nombre: VARCHAR(150) NOT NULL
+  codigo: VARCHAR(20)
+  curso_id: UUID NOT NULL <<FK → cursos.id>>
+  docente_id: UUID NULL <<FK → usuarios.id>>
+  horas_semanales: INTEGER DEFAULT 0
+  activa: BOOLEAN DEFAULT TRUE
+  fecha_creacion: TIMESTAMP DEFAULT NOW()
+  ..
+  docente_id es nullable:
+  permite crear materias sin
+  docente asignado todavía
+}
+
+entity docente_materias {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  docente_id: UUID NOT NULL <<FK → usuarios.id>>
+  materia_id: UUID NOT NULL <<FK → materias.id>>
+  ..
+  UNIQUE(docente_id, materia_id)
+  Relación N:N docente ↔ materia
+}
+
+entity clases {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  materia_id: UUID NOT NULL <<FK → materias.id>>
+  docente_id: UUID NOT NULL <<FK → usuarios.id>>
+  fecha: DATE NOT NULL
+  numero_clase: INTEGER
+  caracter: VARCHAR(50)
+  estado: estado_clase ENUM
+  observaciones: TEXT
+  fecha_creacion: TIMESTAMP DEFAULT NOW()
+  fecha_actualizacion: TIMESTAMP
+  aprobador_id: UUID NULL <<FK → usuarios.id>>
+  ..
+  ENUM estado_clase:
+  CREADO | PENDIENTE |
+  REVISION_REQUERIDA | APROBADO | INMUTABLE
+}
+
+entity temas {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  clase_id: UUID NOT NULL <<FK → clases.id>>
+  nombre: VARCHAR(255) NOT NULL
+  descripcion: TEXT
+  orden: INTEGER DEFAULT 1
+}
+
+entity actividades {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  clase_id: UUID NOT NULL <<FK → clases.id>>
+  nombre: VARCHAR(255) NOT NULL
+  tipo: VARCHAR(100)
+  descripcion: TEXT
+  ..
+  Gestionables desde vista
+  "Actividades por Materia" (Docente)
+}
+
+entity imprevistos {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  clase_id: UUID NOT NULL <<FK → clases.id>>
+  descripcion: TEXT NOT NULL
+  tipo: tipo_imprevisto ENUM
+  severidad: severidad_imprevisto ENUM
+  resuelto: BOOLEAN DEFAULT FALSE
+}
+
+entity evaluaciones {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  materia_id: UUID NOT NULL <<FK → materias.id>>
+  curso_id: UUID NOT NULL <<FK → cursos.id>>
+  docente_id: UUID NOT NULL <<FK → usuarios.id>>
+  fecha: DATE NOT NULL
+  tipo: VARCHAR(100)
+  descripcion: TEXT
+  bloqueada: BOOLEAN DEFAULT FALSE
+}
+
+entity documentos {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  materia_id: UUID NOT NULL <<FK → materias.id>>
+  tipo: tipo_documento ENUM
+  nombre_archivo: VARCHAR(255)
+  nombre_original: VARCHAR(255)
+  ruta: VARCHAR(500)
+  cargado_por: UUID NOT NULL <<FK → usuarios.id>>
+  fecha_subida: TIMESTAMP DEFAULT NOW()
+}
+
+entity aprobaciones {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  clase_id: UUID NOT NULL <<FK → clases.id>>
+  aprobador_id: UUID NOT NULL <<FK → usuarios.id>>
+  estado: estado_aprobacion ENUM
+  comentarios: TEXT
+  fecha_revision: TIMESTAMP DEFAULT NOW()
+  ..
+  ENUM estado_aprobacion:
+  APROBADO | RECHAZADO | REVISION_REQUERIDA
+}
+
+entity auditoria {
+  *id: UUID <<PK, default uuid_generate_v4()>>
+  --
+  usuario_id: UUID <<FK → usuarios.id>>
+  tabla_afectada: VARCHAR(100)
+  accion: accion_auditoria ENUM
+  registro_id: UUID
+  datos_antes: JSONB
+  datos_despues: JSONB
+  timestamp: TIMESTAMP DEFAULT NOW()
+  ip_origen: VARCHAR(45)
+  ..
+  ENUM accion_auditoria:
+  INSERT | UPDATE | DELETE | LOGIN | LOGOUT
+  Accesible solo por Directivo/Admin
+}
+
+' ── Relaciones ─────────────────────────────────────
+
+usuarios    ||--||  roles          : tiene (rol_id)
+usuarios    ||--o{  docente_materias : asignado en
+materias    ||--o{  docente_materias : incluye
+
+usuarios    ||--o{  clases         : registra (docente_id)
+usuarios    ||--o{  clases         : aprueba (aprobador_id)
+usuarios    ||--o{  documentos     : carga
+usuarios    ||--o{  aprobaciones   : aprueba
+usuarios    ||--o{  auditoria      : genera
+usuarios    ||--o{  evaluaciones   : crea
+
+cursos      ||--o{  materias       : contiene
+materias    ||--o{  clases         : incluye
+materias    ||--o{  evaluaciones   : requiere
+materias    ||--o{  documentos     : almacena
+
+clases      ||--o{  temas          : contiene
+clases      ||--o{  actividades    : desarrolla
+clases      ||--o{  imprevistos    : registra
+clases      ||--o{  aprobaciones   : requiere
+
+@enduml

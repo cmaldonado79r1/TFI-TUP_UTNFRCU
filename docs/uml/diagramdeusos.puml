@@ -1,0 +1,125 @@
+@startuml SGCA_Casos_Uso
+
+!define PRIMARYCOLOR #3498DB
+!define SECONDARYCOLOR #2ECC71
+
+skinparam backgroundColor #FEFEFE
+skinparam actorBackgroundColor #E8F4F8
+skinparam actorBorderColor PRIMARYCOLOR
+skinparam usecaseBorderColor PRIMARYCOLOR
+skinparam noteBkgColor #FFFFCC
+skinparam defaultFontSize 10
+
+title SISTEMA DE GESTIÓN DE CONTENIDO ÁULICO\nDiagrama de Casos de Uso
+
+' Actores
+actor Docente
+actor Directivo
+actor "Asesor\nPedagógico" as Asesor
+actor Administrador
+
+' Casos de uso principales
+rectangle Sistema {
+  usecase "Autenticarse"              as UC_Auth
+  usecase "Registrar Clase"           as UC_RegContent
+  usecase "Registrar Actividades\npor Materia" as UC_RegActivity
+  usecase "Registrar Imprevistos"     as UC_RegIncident
+  usecase "Programar Evaluación"      as UC_ProgEval
+  usecase "Validar Fecha Evaluación"  as UC_BlockEval
+  usecase "Revisar Registros"         as UC_Validate
+  usecase "Aprobar / Rechazar Clase"  as UC_Approve
+  usecase "Cargar Documentos"         as UC_Upload
+  usecase "Exportar Reportes"         as UC_Export
+  usecase "Ver Auditoría"             as UC_Audit
+  usecase "Gestionar Usuarios"        as UC_Users
+  usecase "Crear / Editar Materias"   as UC_Materias
+  usecase "Asignar Materias\na Docentes" as UC_AsignMat
+  usecase "Gestión Total\n(sin restricciones)" as UC_Admin
+}
+
+' ── Relaciones Docente ──────────────────────────────
+Docente --> UC_Auth
+Docente --> UC_RegContent
+Docente --> UC_RegActivity
+Docente --> UC_RegIncident
+Docente --> UC_ProgEval
+Docente --> UC_Upload
+Docente --> UC_Export
+
+' ── Relaciones Directivo ────────────────────────────
+Directivo --> UC_Auth
+Directivo --> UC_Validate
+Directivo --> UC_Approve
+Directivo --> UC_Export
+Directivo --> UC_Audit
+Directivo --> UC_Users
+Directivo --> UC_Materias
+Directivo --> UC_AsignMat
+
+' ── Relaciones Asesor ───────────────────────────────
+Asesor --> UC_Auth
+Asesor --> UC_Validate
+Asesor --> UC_Audit
+Asesor --> UC_Export
+
+' ── Relaciones Administrador ─────────────────────────
+Administrador --> UC_Auth
+Administrador --> UC_Admin
+UC_Admin ..> UC_Users    : <<incluye>>
+UC_Admin ..> UC_Materias : <<incluye>>
+UC_Admin ..> UC_Audit    : <<incluye>>
+UC_Admin ..> UC_Export   : <<incluye>>
+UC_Admin ..> UC_Approve  : <<incluye>>
+
+' ── Dependencias entre casos de uso ─────────────────
+UC_RegContent  ..> UC_BlockEval  : <<verifica>>
+UC_Approve     ..> UC_Audit      : <<genera>>
+UC_Users       ..> UC_AsignMat   : <<extiende>>
+
+' ── Notas explicativas ──────────────────────────────
+note right of Administrador
+  Solo ADMINISTRADOR puede:
+  - Crear usuarios con rol ADMIN
+  - Asignar rol ADMINISTRADOR
+  a usuarios existentes.
+  (Verificado en backend y
+  ocultado en frontend para Directivo)
+end note
+
+note right of UC_RegActivity
+  Vista "Actividades por Materia":
+  el Docente selecciona una materia
+  propia, ve sus clases y gestiona
+  actividades por clase de forma
+  independiente.
+end note
+
+note right of UC_Materias
+  Directivo/Admin pueden crear
+  una materia sin docente asignado.
+  La asignación se realiza después
+  via "Asignar Materias a Docentes".
+end note
+
+note right of UC_Approve
+  Proceso de visado:
+  - Revisar contenido
+  - Aprobar o rechazar con comentario
+  - Aprobado → estado INMUTABLE
+  - Notificar al docente
+end note
+
+note right of UC_Export
+  Formatos soportados:
+  - PDF: Libro de Temas
+  - XLSX: Reporte de clases
+end note
+
+note right of UC_BlockEval
+  Validación automática:
+  - Revisa evaluaciones programadas
+  - Previene superposiciones de fecha
+  - Actualiza disponibilidad
+end note
+
+@enduml

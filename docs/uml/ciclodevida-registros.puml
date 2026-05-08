@@ -1,0 +1,72 @@
+@startuml SGCA_Estados
+
+!define PRIMARYCOLOR #3498DB
+!define SECONDARYCOLOR #2ECC71
+!define ERRORCOLOR #E74C3C
+
+skinparam backgroundColor #FEFEFE
+skinparam stateBorderColor PRIMARYCOLOR
+skinparam stateBackgroundColor #E8F4F8
+skinparam stateArrowColor PRIMARYCOLOR
+skinparam noteBkgColor #FFFFCC
+skinparam defaultFontSize 9
+
+title SGCA - Ciclo de Vida de un Registro de Clase
+
+[*] --> CREADO
+
+CREADO --> PENDIENTE: Guardado exitoso
+note on link
+  - Datos validados (JS + backend)
+  - INSERT en BD (transacción)
+  - Auditoría registrada
+  - Email notificado a Directivo
+end note
+
+PENDIENTE --> REVISION_REQUERIDA: Directivo/Admin rechaza\n(+ comentarios obligatorios)
+note on link
+  - Estado actualizado
+  - Email al docente
+  - Registro editable nuevamente
+end note
+
+PENDIENTE --> APROBADO: Directivo/Admin aprueba
+note on link
+  - Visado completado
+  - Auditoría registrada
+  - Aprobador_id registrado
+  - Transición inmediata a INMUTABLE
+end note
+
+REVISION_REQUERIDA --> PENDIENTE: Docente corrige\ny reenvía
+note on link
+  - Nuevos cambios guardados
+  - Vuelve a cola de revisión
+  - Email a directivos/admin
+end note
+
+APROBADO --> INMUTABLE: Cierre definitivo
+note on link
+  - Bloqueo completo de edición
+  - Solo lectura
+  - Actividades/temas no editables
+  - Preservación histórica
+end note
+
+INMUTABLE --> [*]
+note on link
+  - Fin del ciclo
+  - Datos archivados
+  - Accesibles para reportes PDF/XLSX
+  - Visibles en auditoría
+end note
+
+INMUTABLE --> INMUTABLE: Consulta / Visualización\n/ Exportación
+note on link
+  Solo lectura permitida.
+  Disponible en reportes y auditoría.
+end note
+
+note "Acciones por rol:\n- Docente: CREADO → PENDIENTE,\n  corrige en REVISIÓN_REQUERIDA.\n- Directivo/Admin: PENDIENTE →\n  APROBADO o REVISIÓN_REQUERIDA.\n- Asesor: solo consulta." as N1
+
+@enduml

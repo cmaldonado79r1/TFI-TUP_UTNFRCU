@@ -1,0 +1,96 @@
+@startuml SGCA_Arquitectura
+
+!define PRIMARYCOLOR #3498DB
+!define SECONDARYCOLOR #2ECC71
+
+skinparam backgroundColor #FEFEFE
+skinparam componentBackgroundColor #E8F4F8
+skinparam componentBorderColor PRIMARYCOLOR
+skinparam defaultFontSize 9
+
+title SGCA - Arquitectura del Sistema
+
+package "Cliente (Browser)" {
+  component [HTML5 / CSS3] as html
+  component [Bootstrap 5] as bootstrap
+  component [JavaScript SPA\napp.js + api.js + ui.js] as js
+  component [Views\n(usuarios, materias, clases,\nactividades, evaluaciones,\ndocumentos, reportes, auditoría)] as views
+}
+
+package "Servidor (Node.js / Express.js)" {
+  component [Rate Limiter\n200 req / 15 min] as ratelimit
+  component [JWT Auth Middleware\nverifyToken / requireDirectivo] as jwt
+  component [Routes\n(auth, usuarios, materias, clases,\nactividades, evaluaciones,\ndocumentos, aprobaciones,\nauditoria, reportes)] as routes
+  component [Controllers] as ctrl
+  component [Audit Middleware\nregistrarAuditoria()] as audit
+  component [Multer\n(subida archivos)] as multer
+  component [Utils\n(DB query helper, PDF, XLSX)] as utils
+}
+
+package "Base de Datos" {
+  database "PostgreSQL 15\n(sgca_db)" as db
+}
+
+package "Servicios Externos" {
+  component [Nodemailer\n(Email)] as email
+  component [PDFKit\n(Libro de Temas)] as pdf
+  component [ExcelJS\n(Reportes XLSX)] as excel
+}
+
+package "Almacenamiento" {
+  folder "uploads/\n(archivos subidos)" as uploads
+}
+
+package "Infraestructura" {
+  component [Docker] as docker
+  component [Docker Compose] as compose
+}
+
+' ── Conexiones Cliente ──────────────────────────────
+bootstrap --> html
+html --> views
+views --> js
+js --> ratelimit : HTTP/HTTPS (fetch API)
+
+' ── Conexiones Servidor ─────────────────────────────
+ratelimit --> jwt
+jwt --> routes
+routes --> ctrl
+ctrl --> audit
+ctrl --> utils
+ctrl --> multer
+utils --> db
+multer --> uploads
+
+' ── Servicios Externos ──────────────────────────────
+ctrl --> email  : notificaciones
+utils --> pdf   : generación PDF
+utils --> excel : generación XLSX
+
+' ── Infraestructura ─────────────────────────────────
+docker --> ctrl
+compose --> docker
+
+note right of jwt
+  verifyToken: valida JWT en cada ruta.
+  requireDirectivo: exige rol
+  DIRECTIVO o ADMINISTRADOR.
+  Solo ADMINISTRADOR puede asignar
+  rol ADMINISTRADOR a usuarios.
+end note
+
+note right of audit
+  Registra INSERT/UPDATE/DELETE
+  en tabla auditoria con:
+  - usuario, tabla, acción
+  - datos antes/después
+  - IP de origen
+end note
+
+note right of multer
+  Límite: 10 MB por archivo
+  Tipos: PROGRAMA, PLANIFICACIÓN
+  Destino: backend/uploads/
+end note
+
+@enduml

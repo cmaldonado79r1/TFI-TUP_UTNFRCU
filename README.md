@@ -1,13 +1,6 @@
 # SGCA – Sistema de Gestión de Contenido Áulico
 
-**Trabajo Final Integrador – Técnico Universitario en Programación**  
-**UTN Facultad Regional Concepcion del Uruguay**
-
----
-
-## Descripción
-
-El SGCA es una aplicación web que permite a los docentes registrar el contenido de sus clases (temas, actividades, imprevistos), programar evaluaciones y cargar documentos. Los directivos y asesores pedagógicos revisan, aprueban o rechazan dichos registros. Una vez aprobado, el registro queda inmutable y disponible para consultas, reportes y auditoría.
+Aplicación web que permite a los docentes registrar el contenido dictado en cada clase (temas, actividades, imprevistos, documentos, evaluaciones). Los directivos y asesores pedagógicos revisan, aprueban o rechazan esos registros; una vez aprobados se vuelven inmutables y quedan disponibles para auditoría y reportes.
 
 ---
 
@@ -15,59 +8,105 @@ El SGCA es una aplicación web que permite a los docentes registrar el contenido
 
 | Rol | Descripción |
 |-----|-------------|
-| **Docente** | Registra clases, temas, actividades, imprevistos, documentos y evaluaciones |
-| **Directivo** | Aprueba o rechaza registros, bloquea fechas, gestiona usuarios, consulta auditoría |
-| **Asesor Pedagógico** | Revisa contenido y emite recomendaciones |
+| **ADMINISTRADOR** | Acceso total. Puede crear/editar cualquier usuario, asignar el rol ADMINISTRADOR, gestionar materias, cursos y toda la plataforma. |
+| **DIRECTIVO** | Aprueba/rechaza registros, gestiona usuarios (excepto asignar rol ADMINISTRADOR), crea y edita materias, consulta auditoría y exporta reportes. |
+| **ASESOR_PEDAGÓGICO** | Revisa contenido y emite recomendaciones; consulta auditoría y exporta reportes. |
+| **DOCENTE** | Registra clases, temas, actividades por materia, imprevistos, documentos y evaluaciones. |
+
+> **Restricción de roles**: solo el **ADMINISTRADOR** puede crear usuarios con rol ADMINISTRADOR. El Directivo ve filtrado ese rol tanto en el backend como en el frontend.
+
+---
+
+## Funcionalidades principales
+
+### Docente
+- Registrar clases con temas, actividades, carácter e imprevistos.
+- **Vista de Actividades por Materia**: selecciona una de sus materias asignadas y carga/gestiona actividades clase por clase de forma independiente.
+- Programar evaluaciones (con validación de fecha disponible).
+- Cargar documentos (Programa, Planificación).
+- Exportar reportes (PDF libro de temas, XLSX).
+
+### Directivo
+- Aprobar / rechazar registros de clases (los aprobados pasan a estado inmutable).
+- **Crear y editar materias** (el docente asignado es opcional al crear).
+- Gestionar usuarios: crear, editar, resetear contraseña, activar/desactivar.
+- Asignar materias a docentes.
+- Consultar auditoría completa del sistema.
+- Exportar reportes.
+
+### Administrador
+- Todo lo del Directivo, más:
+- Crear usuarios con rol **ADMINISTRADOR**.
+- Asignar el rol ADMINISTRADOR a usuarios existentes.
+- Gestión completa sin restricciones.
+
+### Asesor Pedagógico
+- Revisar y validar registros.
+- Consultar auditoría.
+- Exportar reportes.
 
 ---
 
 ## Stack tecnológico
 
-- **Frontend:** HTML5, CSS3, Bootstrap 5, JavaScript (SPA vanilla)
-- **Backend:** Node.js + Express.js (arquitectura por capas: routes → controllers → services)
-- **Base de datos:** PostgreSQL 15
-- **Autenticación:** JWT (jsonwebtoken + bcrypt)
-- **Email:** Nodemailer (simulado en desarrollo)
-- **Reportes:** PDFKit (PDF) + ExcelJS (XLSX)
-- **Subida de archivos:** Multer
-- **Infraestructura:** Docker + Docker Compose
-
----
-
-## Ciclo de vida de una clase
-
-```
-CREADO → PENDIENTE → APROBADO → INMUTABLE
-                  ↘ REVISIÓN_REQUERIDA → PENDIENTE (reenvío)
-```
+| Capa | Tecnología |
+|------|-----------|
+| **Frontend** | HTML5, CSS3, Bootstrap 5, JavaScript vanilla (SPA) |
+| **Backend** | Node.js 18 + Express.js (arquitectura en capas) |
+| **Base de datos** | PostgreSQL 15 |
+| **Autenticación** | JWT (HS256, expiración configurable) |
+| **Reportes** | PDFKit (PDF), ExcelJS (XLSX) |
+| **Subida de archivos** | Multer |
+| **Email** | Nodemailer (configurable) |
+| **Seguridad** | Rate Limiter (200 req/15 min), bcrypt para contraseñas |
+| **Infraestructura** | Docker + Docker Compose |
 
 ---
 
 ## Estructura del proyecto
 
 ```
-sgca/
+TFI-TUP_UTNFRCU/
 ├── backend/
-│   ├── controllers/        # Lógica de negocio por recurso
-│   ├── routes/             # Definición de endpoints REST
-│   ├── middlewares/        # Autenticación JWT + auditoría
-│   ├── models/             # Pool de conexión PostgreSQL
-│   ├── utils/              # Email (Nodemailer)
-│   ├── uploads/            # Archivos subidos por usuarios
-│   ├── server.js           # Punto de entrada Express
-│   ├── Dockerfile
-│   └── package.json
+│   ├── controllers/          # Lógica de negocio
+│   │   ├── auth.controller.js
+│   │   ├── usuarios.controller.js
+│   │   ├── materias.controller.js
+│   │   ├── clases.controller.js
+│   │   ├── actividades.controller.js
+│   │   ├── evaluaciones.controller.js
+│   │   ├── documentos.controller.js
+│   │   ├── aprobaciones.controller.js
+│   │   ├── reportes.controller.js
+│   │   ├── imprevistos.controller.js
+│   │   └── auditoria.controller.js
+│   ├── routes/               # Definición de endpoints
+│   ├── middlewares/          # verifyToken, requireDirectivo, rate limiter
+│   ├── utils/                # DB helper, auditoría, generadores PDF/XLSX
+│   ├── uploads/              # Archivos subidos (Multer)
+│   ├── server.js
+│   └── .env                  # Variables de entorno (no incluido en repo)
 ├── frontend/
 │   └── public/
-│       ├── index.html      # SPA principal
-│       ├── css/app.css
+│       ├── index.html        # SPA shell + modales
+│       ├── css/
 │       └── js/
-│           ├── api.js      # Cliente HTTP centralizado
-│           ├── ui.js       # Helpers de interfaz
-│           ├── app.js      # Router y autenticación
-│           └── views/      # Vistas por módulo
+│           ├── app.js        # Router SPA y navegación por rol
+│           ├── api.js        # Capa de llamadas HTTP
+│           ├── ui.js         # Helpers UI (toast, fillSelect, etc.)
+│           └── views/
+│               ├── dashboard.js
+│               ├── usuarios.js     # Gestión de usuarios (Directivo/Admin)
+│               ├── materias.js     # Crear/editar materias (Directivo/Admin)
+│               ├── clases.js       # Registro de clases (Docente)
+│               ├── actividades.js  # Actividades por materia (Docente)
+│               ├── evaluaciones.js
+│               ├── documentos.js
+│               ├── aprobaciones.js
+│               ├── reportes.js
+│               └── auditoria.js
 ├── database/
-│   └── init.sql            # Schema + datos iniciales
+│   └── init.sql              # Schema PostgreSQL + datos iniciales
 ├── docker-compose.yml
 └── README.md
 ```
@@ -84,28 +123,49 @@ cd TFI-TUP_UTNFRCU
 docker-compose up --build
 ```
 
-La aplicación estará disponible en: **http://localhost:3000** (se hicieron las pruebas en maquinas virtuales locales)
-
----
+Acceder en: [http://localhost:3000](http://localhost:3000)
 
 ### Sin Docker (desarrollo local)
 
-**Requisitos:** Node.js 18+, PostgreSQL 15
+**Requisitos**: Node.js 18+, PostgreSQL 15
 
 ```bash
-# 1. Crear base de datos
-createdb sgca_db
-createuser sgca_user
-psql -d sgca_db -f database/init.sql
+# 1. Crear base de datos y usuario
+psql -U postgres -c "CREATE USER sgca_user WITH PASSWORD 'sgca_password';"
+psql -U postgres -c "CREATE DATABASE sgca_db OWNER sgca_user;"
+psql -U sgca_user -d sgca_db -f database/init.sql
 
-# 2. Configurar backend
+# 2. Configurar variables de entorno
+cp backend/.env.example backend/.env
+# Editar backend/.env con los valores correctos
+
+# 3. Instalar dependencias y arrancar
 cd backend
-cp .env.example .env
-# Editar .env con tus datos de conexión
-
-# 3. Instalar dependencias y levantar
 npm install
 node server.js
+```
+
+---
+
+## Variables de entorno (`backend/.env`)
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=sgca_db
+DB_USER=sgca_user
+DB_PASSWORD=sgca_password
+JWT_SECRET=tu_clave_secreta_aqui
+JWT_EXPIRES_IN=8h
+PORT=3000
+NODE_ENV=development
+MAIL_HOST=
+MAIL_PORT=587
+MAIL_USER=
+MAIL_PASS=
+MAIL_FROM=SGCA <noreply@sgca.edu.ar>
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE=10485760
 ```
 
 ---
@@ -114,55 +174,117 @@ node server.js
 
 | Email | Rol | Contraseña |
 |-------|-----|------------|
-| `directivo@sgca.edu.ar` | Directivo | `password` |
-| `admin@sgca.edu.ar` | Directivo | `password` |
-| `docente@sgca.edu.ar` | Docente | `password` |
-| `asesor@sgca.edu.ar` | Asesor Pedagógico | `password` |
-
-> ⚠️ Cambiar las contraseñas en un entorno de producción. 
+| `admin@sgca.edu.ar` | ADMINISTRADOR | `password` |
+| `directivo@sgca.edu.ar` | DIRECTIVO | `password` |
+| `docente@sgca.edu.ar` | DOCENTE | `password` |
+| `asesor@sgca.edu.ar` | ASESOR_PEDAGÓGICO | `password` |
 
 ---
 
-## API REST – Endpoints principales
+## Endpoints principales de la API
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| POST | `/api/auth/login` | Autenticación, devuelve JWT |
-| GET | `/api/clases` | Listar clases (filtrable) |
-| POST | `/api/clases` | Crear clase con temas y actividades |
-| PUT | `/api/clases/:id` | Editar clase en revisión |
-| GET | `/api/aprobaciones/pendientes` | Bandeja de pendientes |
-| POST | `/api/aprobaciones` | Aprobar o rechazar clase |
-| GET | `/api/evaluaciones/validar` | Validar disponibilidad de fecha |
-| POST | `/api/imprevistos` | Registrar imprevisto en clase |
-| POST | `/api/documentos` | Subir documento a una materia |
-| GET | `/api/reportes/pdf` | Exportar Libro de Temas (PDF) |
-| GET | `/api/reportes/excel` | Exportar reporte de clases (XLSX) |
-| GET | `/api/auditoria` | Consultar log de auditoría |
+### Autenticación
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/auth/login` | Login, devuelve JWT |
+
+### Usuarios
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/usuarios` | Directivo+ | Listar usuarios |
+| POST | `/api/usuarios` | Directivo+ | Crear usuario (ADMIN solo por Admin) |
+| PUT | `/api/usuarios/:id` | Directivo+ | Editar usuario |
+| PUT | `/api/usuarios/:id/reset-password` | Directivo+ | Resetear contraseña |
+| GET | `/api/usuarios/:id/materias` | Auth | Materias de un docente |
+| PUT | `/api/usuarios/:id/materias` | Directivo+ | Asignar materias a docente |
+
+### Materias
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/materias` | Auth | Listar materias (Docente ve solo las propias) |
+| GET | `/api/materias/:id` | Auth | Obtener materia |
+| POST | `/api/materias` | Directivo+ | Crear materia (docente opcional) |
+| PUT | `/api/materias/:id` | Directivo+ | Editar materia |
+
+### Clases
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/clases` | Auth | Listar clases |
+| POST | `/api/clases` | Auth | Crear clase |
+| PUT | `/api/clases/:id` | Auth | Editar clase |
+
+### Actividades
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/actividades/clase/:clase_id` | Auth | Actividades de una clase |
+| POST | `/api/actividades` | Auth | Crear actividad |
+| DELETE | `/api/actividades/:id` | Auth | Eliminar actividad |
+
+### Aprobaciones
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/aprobaciones/pendientes` | Directivo+ | Clases pendientes de revisión |
+| POST | `/api/aprobaciones` | Directivo+ | Aprobar/rechazar clase |
+
+### Evaluaciones
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/evaluaciones` | Auth | Listar evaluaciones |
+| GET | `/api/evaluaciones/validar` | Auth | Validar disponibilidad de fecha |
+| POST | `/api/evaluaciones` | Auth | Crear evaluación |
+| PUT | `/api/evaluaciones/:id` | Auth | Editar evaluación |
+| DELETE | `/api/evaluaciones/:id` | Auth | Eliminar evaluación |
+
+### Documentos
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/documentos` | Auth | Listar documentos |
+| POST | `/api/documentos` | Auth | Subir documento (Multer) |
+| DELETE | `/api/documentos/:id` | Auth | Eliminar documento |
+
+### Reportes
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/reportes/pdf` | Auth | Exportar libro de temas (PDF) |
+| GET | `/api/reportes/excel` | Auth | Exportar reporte (XLSX) |
+
+### Auditoría
+| Método | Ruta | Acceso | Descripción |
+|--------|------|--------|-------------|
+| GET | `/api/auditoria` | Directivo+ | Consultar log de auditoría |
 
 ---
 
-## Variables de entorno
+## Seguridad
 
-Copiar `backend/.env.example` a `backend/.env` y completar:
+- Todas las rutas (salvo `/api/auth/login`) requieren JWT válido (`verifyToken`).
+- Las rutas administrativas requieren rol DIRECTIVO o superior (`requireDirectivo`).
+- **Solo ADMINISTRADOR** puede crear o asignar el rol ADMINISTRADOR (verificado en backend y ocultado en frontend).
+- Rate limiting: máximo 200 solicitudes cada 15 minutos por IP.
+- Contraseñas hasheadas con bcrypt (salt rounds 12).
+- Auditoría de todas las operaciones críticas (INSERT, UPDATE, DELETE) con IP de origen.
+- Registros aprobados son **inmutables**: no pueden ser modificados ni eliminados.
 
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=sgca_db
-DB_USER=sgca_user
-DB_PASSWORD=tu_password
-JWT_SECRET=clave_secreta_larga
-JWT_EXPIRES_IN=8h
-PORT=3000
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USER=tu_correo@gmail.com
-MAIL_PASS=tu_app_password
+---
+
+## Diagrama de estados de una clase
+
+```
+CREADO → PENDIENTE → APROBADO → INMUTABLE
+              ↓           
+     REVISIÓN_REQUERIDA → PENDIENTE (tras corrección del docente)
 ```
 
 ---
 
-## Licencia
+## Notas de desarrollo
 
-(SOLO PARA USO ACADEMICO, LAS MEDIDAS DE SEGURIDAD DEL PROYECTO NO ESTAN PREPARADAS PARA PRODUCCION, NO SE HAN ENDURECIDO CORRECTAMENTE) 
+- El archivo `backend/.env` **no se incluye** en el repositorio por seguridad.
+- `database/init.sql` contiene el schema completo con datos iniciales de prueba.
+- La columna `materias.docente_id` permite `NULL` para permitir crear materias sin asignar docente todavía.
+- La tabla `docente_materias` gestiona la relación N:N entre docentes y materias (una materia puede ser impartida por distintos docentes en distintos cursos).
+- Los archivos subidos se almacenan en `backend/uploads/`.
+
+---
+
+*Proyecto académico — TFI TUP UTN FRCU · Uso académico exclusivo*

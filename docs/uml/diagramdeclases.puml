@@ -1,0 +1,262 @@
+@startuml SGCA_Completo
+
+!define PRIMARYCOLOR #3498DB
+!define SECONDARYCOLOR #2ECC71
+!define ERRORCOLOR #E74C3C
+
+skinparam backgroundColor #FEFEFE
+skinparam classBackgroundColor #E8F4F8
+skinparam classBorderColor PRIMARYCOLOR
+skinparam arrowColor PRIMARYCOLOR
+skinparam packageBorderColor PRIMARYCOLOR
+skinparam noteBkgColor #FFFFCC
+skinparam noteBorderColor #FF9800
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title SISTEMA DE GESTIÓN DE CONTENIDO ÁULICO (SGCA)\nDiagrama de Clases y Relaciones
+
+' ===================================================
+' DIAGRAMA DE CLASES - MODELO DE DOMINIO
+' ===================================================
+
+class Usuario {
+  {id} id: UUID
+  email: String
+  password_hash: String
+  nombre: String
+  apellido: String
+  rol_id: UUID <<FK>>
+  estado: Boolean
+  fecha_creacion: Timestamp
+  ultimo_acceso: Timestamp
+  --
+  +autenticar(): Boolean
+  +obtenerPerfil(): Profile
+}
+
+class Rol {
+  {id} id: UUID
+  nombre: String
+  descripcion: String
+  permisos: JSON
+  --
+  +obtenerPermisos(): List
+  +validarPermiso(): Boolean
+}
+
+note right of Rol
+  Roles disponibles:
+  - DOCENTE
+  - DIRECTIVO
+  - ASESOR_PEDAGÓGICO
+  - ADMINISTRADOR (solo asignable por Admin)
+end note
+
+class Curso {
+  {id} id: UUID
+  nombre: String
+  nivel: Integer
+  turno: String
+  anio_lectivo: Integer
+  activo: Boolean
+  --
+  +obtenerMaterias(): List
+  +obtenerDocentes(): List
+}
+
+class Materia {
+  {id} id: UUID
+  nombre: String
+  codigo: String
+  curso_id: UUID <<FK>>
+  docente_id: UUID <<FK, nullable>>
+  horas_semanales: Integer
+  activa: Boolean
+  fecha_creacion: Timestamp
+  --
+  +obtenerTemas(): List
+  +obtenerClases(): List
+  +asignarDocente(): void
+}
+
+note right of Materia
+  docente_id es opcional (nullable):
+  Directivo/Admin pueden crear una
+  materia sin asignar docente aún.
+  La asignación se hace luego via
+  PUT /api/usuarios/:id/materias
+end note
+
+class DocenteMateria {
+  {id} id: UUID
+  docente_id: UUID <<FK>>
+  materia_id: UUID <<FK>>
+  --
+  <<tabla de unión N:N>>
+  UNIQUE(docente_id, materia_id)
+}
+
+class Clase {
+  {id} id: UUID
+  materia_id: UUID <<FK>>
+  docente_id: UUID <<FK>>
+  fecha: Date
+  numero_clase: Integer
+  caracter: String
+  estado: Enum
+  observaciones: Text
+  fecha_creacion: Timestamp
+  fecha_actualizacion: Timestamp
+  aprobador_id: UUID <<FK, nullable>>
+  --
+  +crear(): Clase
+  +cambiarEstado(): void
+  +bloquearEdicion(): void
+}
+
+note right of Clase
+  Estados:
+  CREADO → PENDIENTE → APROBADO → INMUTABLE
+           ↓
+      REVISIÓN_REQUERIDA → PENDIENTE
+  Una vez INMUTABLE no puede editarse.
+end note
+
+class Tema {
+  {id} id: UUID
+  clase_id: UUID <<FK>>
+  nombre: String
+  descripcion: String
+  orden: Integer
+}
+
+class Actividad {
+  {id} id: UUID
+  clase_id: UUID <<FK>>
+  nombre: String
+  tipo: String
+  descripcion: String
+  --
+  +crear(): void
+  +eliminar(): void
+}
+
+note right of Actividad
+  Gestionable por Docente desde
+  la vista "Actividades por Materia":
+  selecciona materia → ve clases →
+  agrega/elimina actividades por clase.
+  Bloqueada si la clase es INMUTABLE
+  o tiene estado aprobado.
+end note
+
+class Imprevisto {
+  {id} id: UUID
+  clase_id: UUID <<FK>>
+  descripcion: String
+  tipo: Enum
+  severidad: Enum
+  resuelto: Boolean
+}
+
+class Evaluacion {
+  {id} id: UUID
+  materia_id: UUID <<FK>>
+  curso_id: UUID <<FK>>
+  docente_id: UUID <<FK>>
+  fecha: Date
+  tipo: String
+  descripcion: String
+  bloqueada: Boolean
+  --
+  +validarFechaDisponible(): Boolean
+  +bloquearFecha(): void
+}
+
+note right of Evaluacion
+  Bloqueo de evaluaciones:
+  - Una fecha por docente por curso
+  - Previene superposiciones
+  - Auditoría de bloqueos
+end note
+
+class Documento {
+  {id} id: UUID
+  materia_id: UUID <<FK>>
+  tipo: Enum
+  nombre_archivo: String
+  nombre_original: String
+  ruta: String
+  cargado_por: UUID <<FK>>
+  fecha_subida: Timestamp
+  --
+  +cargar(): void
+  +descargar(): File
+}
+
+note right of Documento
+  Tipos:
+  - PROGRAMA
+  - PLANIFICACIÓN
+  Almacenados via Multer en uploads/
+end note
+
+class Aprobacion {
+  {id} id: UUID
+  clase_id: UUID <<FK>>
+  aprobador_id: UUID <<FK>>
+  estado: Enum
+  comentarios: Text
+  fecha_revision: Timestamp
+  --
+  +aprobar(): void
+  +rechazar(): void
+}
+
+class RegistroAuditoria {
+  {id} id: UUID
+  usuario_id: UUID <<FK>>
+  tabla_afectada: String
+  accion: Enum
+  registro_id: UUID
+  datos_anteriores: JSON
+  datos_nuevos: JSON
+  timestamp: Timestamp
+  ip_origen: String
+  --
+  +registrar(): void
+  +obtenerHistorial(): List
+}
+
+note right of RegistroAuditoria
+  Trazabilidad completa:
+  - Qué cambió
+  - Quién lo cambió
+  - Cuándo
+  - Desde dónde (IP)
+  Accesible solo por Directivo/Admin.
+end note
+
+' ===================================================
+' RELACIONES
+' ===================================================
+
+Usuario "1" --> "1"   Rol             : tiene
+Usuario "1" --> "N"   DocenteMateria  : asignado en
+Materia "1" --> "N"   DocenteMateria  : incluye
+Usuario "1" --> "N"   Clase           : registra
+Usuario "1" --> "N"   Aprobacion      : aprueba
+Usuario "1" --> "N"   RegistroAuditoria : genera
+
+Curso   "1" --> "N"   Materia    : contiene
+Materia "1" --> "N"   Clase      : incluye
+Materia "1" --> "N"   Evaluacion : requiere
+Materia "1" --> "N"   Documento  : almacena
+
+Clase "1" --> "N" Tema       : contiene
+Clase "1" --> "N" Actividad  : desarrolla
+Clase "1" --> "N" Imprevisto : registra
+Clase "1" --> "1" Aprobacion : requiere
+
+@enduml

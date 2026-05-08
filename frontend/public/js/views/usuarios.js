@@ -137,9 +137,13 @@ const UsuariosView = (() => {
     UI.clearAlert('usuario-alert');
 
     // Poblar select de roles con labels legibles
+    // DIRECTIVO no puede asignar rol ADMINISTRADOR
+    const currentUser = App.getUser();
     const rolSel = document.getElementById('usuario-rol');
     rolSel.innerHTML = '<option value="">Seleccione rol...</option>' +
-      _roles.map(r => `<option value="${r.id}">${rolLabel(r.nombre)}</option>`).join('');
+      _roles
+        .filter(r => currentUser.rol !== 'DIRECTIVO' || r.nombre !== 'ADMINISTRADOR')
+        .map(r => `<option value="${r.id}">${rolLabel(r.nombre)}</option>`).join('');
     if (usuario?.rol_id) rolSel.value = usuario.rol_id;
 
     // Mostrar/ocultar panel de materias según el rol seleccionado

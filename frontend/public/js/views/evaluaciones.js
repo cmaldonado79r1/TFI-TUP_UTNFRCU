@@ -88,7 +88,7 @@ const EvaluacionesView = (() => {
 
     try {
       const [materias, cursos] = await Promise.all([Api.getMaterias(), Api.getCursos()]);
-      UI.fillSelect('eval-materia', materias, 'id', 'materia_nombre');
+      UI.fillSelect('eval-materia', materias, 'id', 'nombre');
       UI.fillSelect('eval-curso', cursos, 'id', 'nombre');
     } catch(e) {}
 

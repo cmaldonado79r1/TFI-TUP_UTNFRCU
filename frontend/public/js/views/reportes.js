@@ -86,8 +86,8 @@ const ReportesView = (() => {
 
     try {
       const materias = await Api.getMaterias();
-      UI.fillSelect('pdf-materia', materias, 'id', 'materia_nombre', '-- Seleccione materia --');
-      UI.fillSelect('xls-materia', materias, 'id', 'materia_nombre', '-- Todas las materias --');
+      UI.fillSelect('pdf-materia', materias, 'id', 'nombre', '-- Seleccione materia --');
+      UI.fillSelect('xls-materia', materias, 'id', 'nombre', '-- Todas las materias --');
     } catch(e) {}
 
     document.getElementById('btn-export-pdf').addEventListener('click', async () => {

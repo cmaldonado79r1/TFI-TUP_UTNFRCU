@@ -320,6 +320,52 @@
   </div>
 </div>
 
+<!-- MODAL MATERIA -->
+<div class="modal fade" id="modal-materia" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="modal-materia-title">Nueva Materia</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="materia-id"/>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Nombre *</label>
+          <input type="text" id="materia-nombre" class="form-control" placeholder="Ej: Matemática"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Código</label>
+          <input type="text" id="materia-codigo" class="form-control" placeholder="Ej: MAT01"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Horas semanales</label>
+          <input type="number" id="materia-horas" class="form-control" min="1" max="40" value="4"/>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Curso *</label>
+          <select id="materia-curso" class="form-select"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Docente <span class="text-muted fw-normal">(opcional)</span></label>
+          <select id="materia-docente" class="form-select"></select>
+        </div>
+        <div class="mb-3">
+          <div class="form-check form-switch">
+            <input type="checkbox" id="materia-activa" class="form-check-input" checked/>
+            <label for="materia-activa" class="form-check-label">Materia activa</label>
+          </div>
+        </div>
+        <div id="materia-alert" class="alert d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-success" id="btn-guardar-materia"><i class="bi bi-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
   <div id="app-toast" class="toast align-items-center border-0" role="alert">
@@ -340,6 +386,8 @@
 <script src="/js/views/documentos.js"></script>
 <script src="/js/views/auditoria.js"></script>
 <script src="/js/views/usuarios.js"></script>
+<script src="/js/views/materias.js"></script>
+<script src="/js/views/actividades.js"></script>
 <script src="/js/views/reportes.js"></script>
 <script src="/js/app.js"></script>
 </body>

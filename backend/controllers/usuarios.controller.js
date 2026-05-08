@@ -49,7 +49,8 @@ const obtenerUsuario = async (req, res) => {
     // Si el usuario es DOCENTE, traer también sus materias asignadas
     if (usuario.rol === 'DOCENTE') {
       const materiasRes = await query(
-        `SELECT dm.materia_id, m.nombre AS materia_nombre, c.nombre AS curso_nombre, c.id AS curso_id
+        `SELECT dm.materia_id, m.nombre, m.nombre AS materia_nombre,
+                c.nombre AS curso_nombre, c.id AS curso_id
          FROM docente_materias dm
          JOIN materias m ON dm.materia_id = m.id
          JOIN cursos c ON m.curso_id = c.id
@@ -79,9 +80,14 @@ const crearUsuario = async (req, res) => {
     const existe = await query('SELECT id FROM usuarios WHERE email = $1', [email.toLowerCase()]);
     if (existe.rows.length) return res.status(409).json({ error: 'El email ya está registrado' });
 
-    // Verificar si el rol elegido es DOCENTE
+    // Verificar si el rol elegido es DOCENTE (y restricción de ADMINISTRADOR)
     const rolRes = await query('SELECT nombre FROM roles WHERE id = $1', [rol_id]);
     const rolNombre = rolRes.rows[0]?.nombre;
+
+    // Solo el ADMINISTRADOR puede crear usuarios con rol ADMINISTRADOR
+    if (rolNombre === 'ADMINISTRADOR' && req.user.rol !== 'ADMINISTRADOR') {
+      return res.status(403).json({ error: 'Solo el Administrador puede crear usuarios con rol Administrador' });
+    }
 
     const hash = await bcrypt.hash(password, 10);
     const result = await query(
@@ -129,6 +135,15 @@ const editarUsuario = async (req, res) => {
     const { id } = req.params;
     const { nombre, apellido, rol_id, estado, materia_ids } = req.body;
 
+    // Solo el ADMINISTRADOR puede asignar rol ADMINISTRADOR — verificar ANTES de actualizar
+    if (rol_id) {
+      const rolCheck = await query('SELECT nombre FROM roles WHERE id = $1', [rol_id]);
+      const rolNombreCheck = rolCheck.rows[0]?.nombre;
+      if (rolNombreCheck === 'ADMINISTRADOR' && req.user.rol !== 'ADMINISTRADOR') {
+        return res.status(403).json({ error: 'Solo el Administrador puede asignar el rol Administrador' });
+      }
+    }
+
     const result = await query(
       `UPDATE usuarios
        SET nombre   = COALESCE($1, nombre),
@@ -144,7 +159,7 @@ const editarUsuario = async (req, res) => {
 
     const usuarioActualizado = result.rows[0];
 
-    // Determinar si el usuario (final) es DOCENTE
+    // Determinar el rol final del usuario
     const rolRes = await query(
       'SELECT nombre FROM roles WHERE id = $1',
       [usuarioActualizado.rol_id]
@@ -156,28 +171,27 @@ const editarUsuario = async (req, res) => {
       // Eliminar las asignaciones antiguas
       await query('DELETE FROM docente_materias WHERE docente_id = $1', [id]);
 
-      // Quitar docente_id = NULL de materias que ya no se asignan
-      if (materia_ids.length > 0) {
-        await query(
-          `UPDATE materias SET docente_id = $1
-           WHERE docente_id = $1 AND id NOT IN (${materia_ids.map((_, i) => `$${i + 2}`).join(',')})`,
-          [id, ...materia_ids]
-        );
-      }
+      // Quitar docente_id de las materias que ya tenía este docente asignado
+      await query(
+        `UPDATE materias SET docente_id = NULL WHERE docente_id = $1`,
+        [id]
+      );
 
-      // Insertar las nuevas asignaciones
-      for (const materia_id of materia_ids) {
-        await query(
-          `INSERT INTO docente_materias (docente_id, materia_id, asignado_por)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (docente_id, materia_id) DO NOTHING`,
-          [id, materia_id, req.user.id]
-        );
-        // Actualizar docente en la tabla materias
-        await query(
-          'UPDATE materias SET docente_id = $1 WHERE id = $2',
-          [id, materia_id]
-        );
+      if (materia_ids.length > 0) {
+        // Insertar las nuevas asignaciones
+        for (const materia_id of materia_ids) {
+          await query(
+            `INSERT INTO docente_materias (docente_id, materia_id, asignado_por)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (docente_id, materia_id) DO NOTHING`,
+            [id, materia_id, req.user.id]
+          );
+          // Actualizar docente en la tabla materias
+          await query(
+            'UPDATE materias SET docente_id = $1 WHERE id = $2',
+            [id, materia_id]
+          );
+        }
       }
     }
 
@@ -230,8 +244,16 @@ const listarRoles = async (req, res) => {
 const getMateriasDocente = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Un DOCENTE solo puede ver sus propias materias; directivo/admin pueden ver cualquiera
+    if (req.user.rol === 'DOCENTE' && req.user.id !== id) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+
     const result = await query(
-      `SELECT dm.materia_id, m.nombre AS materia_nombre,
+      `SELECT dm.materia_id,
+              m.nombre,
+              m.nombre AS materia_nombre,
               c.nombre AS curso_nombre, c.id AS curso_id,
               m.codigo, m.horas_semanales
        FROM docente_materias dm
@@ -269,6 +291,9 @@ const asignarMaterias = async (req, res) => {
 
     // Eliminar asignaciones anteriores
     await query('DELETE FROM docente_materias WHERE docente_id = $1', [id]);
+
+    // Quitar docente_id de materias que tenía este docente
+    await query('UPDATE materias SET docente_id = NULL WHERE docente_id = $1', [id]);
 
     // Insertar nuevas
     for (const materia_id of materia_ids) {

@@ -65,7 +65,7 @@ CREATE TABLE materias (
     horas_semanales INTEGER DEFAULT 0,
     activa BOOLEAN DEFAULT TRUE,
     curso_id UUID NOT NULL REFERENCES cursos(id),
-    docente_id UUID NOT NULL REFERENCES usuarios(id),
+    docente_id UUID REFERENCES usuarios(id),
     fecha_creacion TIMESTAMP DEFAULT NOW()
 );
 

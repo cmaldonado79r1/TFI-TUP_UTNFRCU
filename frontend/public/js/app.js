@@ -11,6 +11,7 @@ const App = (() => {
     DOCENTE: [
       { id: 'dashboard',    label: 'Inicio',        icon: 'speedometer2' },
       { id: 'clases',       label: 'Mis Clases',    icon: 'journal-text' },
+      { id: 'actividades',  label: 'Actividades',   icon: 'list-task' },
       { id: 'evaluaciones', label: 'Evaluaciones',  icon: 'calendar-check' },
       { id: 'documentos',   label: 'Documentos',    icon: 'folder2-open' },
       { id: 'reportes',     label: 'Reportes',      icon: 'file-earmark-bar-graph' },
@@ -19,6 +20,7 @@ const App = (() => {
       { id: 'dashboard',    label: 'Inicio',        icon: 'speedometer2' },
       { id: 'aprobaciones', label: 'Bandeja',       icon: 'clipboard2-check', badge: 'pendientes' },
       { id: 'clases',       label: 'Clases',        icon: 'journal-text' },
+      { id: 'materias',     label: 'Materias',      icon: 'book-half' },
       { id: 'evaluaciones', label: 'Evaluaciones',  icon: 'calendar-check' },
       { id: 'documentos',   label: 'Documentos',    icon: 'folder2-open' },
       { id: 'reportes',     label: 'Reportes',      icon: 'file-earmark-bar-graph' },
@@ -28,6 +30,7 @@ const App = (() => {
       { id: 'dashboard',    label: 'Inicio',        icon: 'speedometer2' },
       { id: 'aprobaciones', label: 'Bandeja',       icon: 'clipboard2-check', badge: 'pendientes' },
       { id: 'clases',       label: 'Clases',        icon: 'journal-text' },
+      { id: 'materias',     label: 'Materias',      icon: 'book-half' },
       { id: 'evaluaciones', label: 'Evaluaciones',  icon: 'calendar-check' },
       { id: 'documentos',   label: 'Documentos',    icon: 'folder2-open' },
       { id: 'reportes',     label: 'Reportes',      icon: 'file-earmark-bar-graph' },
@@ -52,6 +55,8 @@ const App = (() => {
     documentos:   () => DocumentosView.render(),
     auditoria:    () => AuditoriaView.render(),
     usuarios:     () => UsuariosView.render(),
+    materias:     () => MateriasView.render(),
+    actividades:  () => ActividadesView.render(),
     reportes:     () => ReportesView.render(),
   };
 

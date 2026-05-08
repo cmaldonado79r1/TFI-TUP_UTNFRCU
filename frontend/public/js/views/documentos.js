@@ -82,7 +82,7 @@ const DocumentosView = (() => {
     document.getElementById('doc-tipo').value = 'OTRO';
     try {
       const materias = await Api.getMaterias();
-      UI.fillSelect('doc-materia', materias, 'id', 'materia_nombre');
+      UI.fillSelect('doc-materia', materias, 'id', 'nombre');
     } catch(e) {}
 
     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-documento'));

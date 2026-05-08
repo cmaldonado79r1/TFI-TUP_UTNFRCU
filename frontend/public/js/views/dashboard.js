@@ -25,7 +25,7 @@ const Dashboard = (() => {
       renderUltimasClases(clases);
 
       const user = App.getUser();
-      if (['DIRECTIVO', 'ASESOR_PEDAGOGICO'].includes(user.rol)) {
+      if (['DIRECTIVO', 'ASESOR_PEDAGOGICO', 'ADMINISTRADOR'].includes(user.rol)) {
         const pendientes = await Api.getPendientes();
         renderPendientes(pendientes);
       } else {

@@ -43,7 +43,7 @@ const ClasesView = (() => {
     // Cargar materias para filtro
     try {
       _materias = await Api.getMaterias();
-      UI.fillSelect('filtro-materia', _materias, 'id', 'materia_nombre', 'Todas las materias');
+      UI.fillSelect('filtro-materia', _materias, 'id', 'nombre', 'Todas las materias');
     } catch(e) {}
 
     document.getElementById('btn-filtrar')?.addEventListener('click', () => {
@@ -255,7 +255,7 @@ const ClasesView = (() => {
             <label class="form-label fw-semibold">Materia *</label>
             <select id="clase-materia" class="form-select" ${claseData ? 'disabled' : ''} required>
               <option value="">Seleccione materia...</option>
-              ${materias.map(m => `<option value="${m.id}" ${claseData?.materia_id===m.id?'selected':''}>${m.materia_nombre} – ${m.curso_nombre}</option>`).join('')}
+              ${materias.map(m => `<option value="${m.id}" ${claseData?.materia_id===m.id?'selected':''}>${m.nombre} – ${m.curso_nombre}</option>`).join('')}
             </select>
             ${claseData ? `<input type="hidden" id="clase-materia-hidden" value="${claseData.materia_id}"/>` : ''}
           </div>

@@ -128,6 +128,84 @@ const App = (() => {
       actualizarBadgePendientes();
       setInterval(actualizarBadgePendientes, 60000);
     }
+    // Mostrar notificaciones al entrar (una vez por sesión)
+    setTimeout(mostrarNotificacionesIniciales, 800);
+  };
+
+  /* ── Notificaciones al iniciar sesión ───────────────────── */
+  const mostrarNotificacionesIniciales = async () => {
+    // Una sola vez por sesión de browser
+    const sessionKey = `sgca_notif_${_user?.id}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, '1');
+
+    try {
+      let notifs = [];
+
+      if (_user?.rol === 'DOCENTE') {
+        // Clases devueltas para corregir
+        const revision = await Api.getClases({ estado: 'REVISION_REQUERIDA' });
+        if (revision.length) {
+          notifs.push({
+            tipo:  'warning',
+            icon:  'bi-exclamation-triangle-fill',
+            title: 'Clases para corregir',
+            body:  `Tenés <strong>${revision.length} clase${revision.length > 1 ? 's' : ''}</strong> que requieren corrección y reenvío.`,
+            items: revision.slice(0, 3).map(c => `${c.materia_nombre} — ${UI.fecha(c.fecha)}`),
+            ir:    'clases',
+            btnLabel: 'Ir a Mis Clases',
+            btnClass: 'btn-warning',
+          });
+        }
+      } else if (['DIRECTIVO', 'ASESOR_PEDAGOGICO', 'ADMINISTRADOR'].includes(_user?.rol)) {
+        // Clases pendientes de visado
+        const pendientes = await Api.getPendientes();
+        if (pendientes.length) {
+          notifs.push({
+            tipo:  'primary',
+            icon:  'bi-clipboard2-check-fill',
+            title: 'Clases pendientes de revisión',
+            body:  `Hay <strong>${pendientes.length} clase${pendientes.length > 1 ? 's' : ''}</strong> esperando tu visado.`,
+            items: pendientes.slice(0, 3).map(c => `${c.materia_nombre} — ${c.docente_nombre}`),
+            ir:    'aprobaciones',
+            btnLabel: 'Ir a la Bandeja',
+            btnClass: 'btn-primary',
+          });
+        }
+      }
+
+      if (!notifs.length) return;
+
+      // Mostrar la primera notificación (extensible a múltiples con paginación futura)
+      const n = notifs[0];
+      const colores = { warning: 'bg-warning text-dark', primary: 'bg-primary text-white' };
+
+      document.getElementById('notif-header').className =
+        `modal-header border-0 rounded-top-3 ${colores[n.tipo]}`;
+      document.getElementById('notif-icon').className = `bi ${n.icon} fs-4`;
+      document.getElementById('notif-title').textContent = n.title;
+      document.getElementById('notif-body').innerHTML = `
+        <p class="mb-2">${n.body}</p>
+        ${n.items.length ? `
+          <ul class="list-group list-group-flush mb-1">
+            ${n.items.map(i => `<li class="list-group-item py-1 small text-muted"><i class="bi bi-dot me-1"></i>${i}</li>`).join('')}
+            ${notifs[0].items.length < (n.tipo === 'primary' ? (notifs[0]._total || n.items.length) : n.items.length)
+              ? '' : ''}
+          </ul>` : ''}`;
+
+      const btnIr = document.getElementById('notif-btn-ir');
+      btnIr.className = `btn btn-sm fw-semibold ${n.btnClass}`;
+      document.getElementById('notif-btn-label').textContent = n.btnLabel;
+      // cloneNode para evitar acumulación de handlers
+      const btnNew = btnIr.cloneNode(true);
+      btnIr.parentNode.replaceChild(btnNew, btnIr);
+      btnNew.addEventListener('click', () => navigate(n.ir));
+
+      bootstrap.Modal.getOrCreateInstance(
+        document.getElementById('modal-notificaciones')
+      ).show();
+
+    } catch(e) { /* silencioso: las notificaciones no deben romper la app */ }
   };
 
   const renderNav = () => {

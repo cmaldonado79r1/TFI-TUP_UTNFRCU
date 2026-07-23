@@ -28,11 +28,8 @@ const AprobacionesView = (() => {
       document.querySelectorAll('[data-ver-pendiente]').forEach(btn => {
         btn.addEventListener('click', () => ClasesView.verClase(btn.dataset.verPendiente));
       });
-      document.querySelectorAll('[data-aprobar]').forEach(btn => {
-        btn.addEventListener('click', () => abrirModalAprobacion(btn.dataset.aprobar, 'APROBADO'));
-      });
-      document.querySelectorAll('[data-rechazar]').forEach(btn => {
-        btn.addEventListener('click', () => abrirModalAprobacion(btn.dataset.rechazar, 'RECHAZADO'));
+      document.querySelectorAll('[data-visar]').forEach(btn => {
+        btn.addEventListener('click', () => abrirModalVisar(btn.dataset.visar, btn.dataset.materia, btn.dataset.fecha));
       });
     } catch(e) {
       document.getElementById('pendientes-container').innerHTML =
@@ -60,48 +57,47 @@ const AprobacionesView = (() => {
           </div>
         </div>
         <div class="card-footer bg-transparent d-flex gap-2 justify-content-end py-2">
-          <button class="btn btn-sm btn-outline-secondary" data-ver-pendiente="${c.id}"><i class="bi bi-eye me-1"></i>Ver</button>
-          <button class="btn btn-sm btn-danger" data-rechazar="${c.id}"><i class="bi bi-x-circle me-1"></i>Rechazar</button>
-          <button class="btn btn-sm btn-success" data-aprobar="${c.id}"><i class="bi bi-check-circle me-1"></i>Aprobar</button>
+          <button class="btn btn-sm btn-outline-secondary" data-ver-pendiente="${c.id}">
+            <i class="bi bi-eye me-1"></i>Ver
+          </button>
+          <button class="btn btn-sm btn-primary" data-visar="${c.id}"
+            data-materia="${c.materia_nombre}" data-fecha="${UI.fecha(c.fecha)}">
+            <i class="bi bi-patch-check me-1"></i>Visar
+          </button>
         </div>
       </div>
     </div>`;
 
-  const abrirModalAprobacion = (claseId, estado) => {
-    const esAprobacion = estado === 'APROBADO';
-    const header = document.getElementById('modal-aprobacion-header');
-    header.className = `modal-header ${esAprobacion ? 'bg-success text-white' : 'bg-danger text-white'}`;
-    document.getElementById('modal-aprobacion-title').textContent = esAprobacion ? '✅ Aprobar Clase' : '❌ Rechazar Clase';
-    document.getElementById('aprobacion-clase-id').value = claseId;
-    document.getElementById('aprobacion-estado').value = estado;
-    document.getElementById('aprobacion-comentarios').value = '';
-    UI.clearAlert('aprobacion-alert');
+  const abrirModalVisar = (claseId, materia, fecha) => {
+    // Resetear contenido del modal
+    document.getElementById('visar-clase-id').value = claseId;
+    document.getElementById('visar-comentarios').value = '';
+    document.getElementById('visar-info').textContent = `${materia} — ${fecha}`;
+    UI.clearAlert('visar-alert');
 
-    const btnConfirmar = document.getElementById('btn-confirmar-aprobacion');
-    btnConfirmar.className = `btn ${esAprobacion ? 'btn-success' : 'btn-danger'}`;
-    btnConfirmar.textContent = esAprobacion ? 'Confirmar aprobación' : 'Confirmar rechazo';
-
-    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-aprobacion'));
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-visar'));
     modal.show();
 
-    btnConfirmar.onclick = async () => {
-      const comentarios = document.getElementById('aprobacion-comentarios').value.trim();
-      if (!esAprobacion && !comentarios) {
-        UI.modalAlert('aprobacion-alert', 'Debe ingresar un comentario al rechazar una clase', 'warning');
-        return;
-      }
+    // cloneNode para evitar acumulación de handlers
+    const btnOrig = document.getElementById('btn-confirmar-visar');
+    const btn = btnOrig.cloneNode(true);
+    btnOrig.parentNode.replaceChild(btn, btnOrig);
+
+    btn.addEventListener('click', async () => {
+      const comentarios = document.getElementById('visar-comentarios').value.trim();
       try {
-        btnConfirmar.disabled = true;
-        const r = await Api.aprobar({ clase_id: claseId, estado, comentarios });
-        UI.toast(r.message, 'success');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Visando...';
+        const r = await Api.aprobar({ clase_id: claseId, estado: 'APROBADO', comentarios });
+        UI.toast(r.message || 'Clase visada correctamente ✓', 'success');
         modal.hide();
         cargarPendientes();
       } catch(err) {
-        UI.modalAlert('aprobacion-alert', err.message);
-      } finally {
-        btnConfirmar.disabled = false;
+        UI.modalAlert('visar-alert', err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-patch-check me-1"></i>Confirmar visado';
       }
-    };
+    });
   };
 
   return { render };

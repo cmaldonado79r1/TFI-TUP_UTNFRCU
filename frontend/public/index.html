@@ -117,25 +117,31 @@
   </div>
 </div>
 
-<div class="modal fade" id="modal-aprobacion" tabindex="-1">
+<div class="modal fade" id="modal-visar" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header" id="modal-aprobacion-header">
-        <h5 class="modal-title" id="modal-aprobacion-title">Revisar Clase</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-patch-check me-2"></i>Visar Clase</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <input type="hidden" id="aprobacion-clase-id" />
-        <input type="hidden" id="aprobacion-estado" />
+        <input type="hidden" id="visar-clase-id" />
+        <p class="text-muted small mb-3">
+          Está por visar la siguiente clase. El docente quedará notificado y la clase pasará a estado <strong>Inmutable</strong>.
+        </p>
+        <div class="alert alert-light border mb-3 py-2 small fw-semibold" id="visar-info"></div>
         <div class="mb-3">
-          <label class="form-label fw-semibold">Comentarios <span class="text-muted">(opcional)</span></label>
-          <textarea id="aprobacion-comentarios" class="form-control" rows="4" placeholder="Agregue observaciones o fundamentos de su decisión..."></textarea>
+          <label class="form-label fw-semibold">Observaciones <span class="text-muted fw-normal">(opcional)</span></label>
+          <textarea id="visar-comentarios" class="form-control" rows="3"
+            placeholder="Puede dejar un comentario para el docente..."></textarea>
         </div>
-        <div id="aprobacion-alert" class="alert d-none"></div>
+        <div id="visar-alert" class="alert d-none"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn" id="btn-confirmar-aprobacion">Confirmar</button>
+        <button class="btn btn-primary" id="btn-confirmar-visar">
+          <i class="bi bi-patch-check me-1"></i>Confirmar visado
+        </button>
       </div>
     </div>
   </div>

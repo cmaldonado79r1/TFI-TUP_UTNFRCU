@@ -193,7 +193,12 @@ const UsuariosView = (() => {
     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-usuario'));
     modal.show();
 
-    document.getElementById('btn-guardar-usuario').onclick = async () => {
+    // Clonar botón para eliminar handlers acumulados de aperturas anteriores
+    const btnOld = document.getElementById('btn-guardar-usuario');
+    const btnNew = btnOld.cloneNode(true);
+    btnOld.parentNode.replaceChild(btnNew, btnOld);
+
+    document.getElementById('btn-guardar-usuario').addEventListener('click', async () => {
       const nombre   = UI.getVal('usuario-nombre');
       const apellido = UI.getVal('usuario-apellido');
       const email    = UI.getVal('usuario-email');
@@ -203,35 +208,45 @@ const UsuariosView = (() => {
         return;
       }
 
-      // Obtener materias seleccionadas
       const materia_ids = [...document.querySelectorAll('.materia-check:checked')].map(c => c.value);
       const rolSeleccionado = _roles.find(r => r.id === rol_id);
 
-      try {
-        const payload = {
-          nombre, apellido, email, rol_id,
-          estado: document.getElementById('usuario-estado').checked,
-        };
-        if (rolSeleccionado?.nombre === 'DOCENTE') {
-          payload.materia_ids = materia_ids;
-        }
-        if (!isEditar) payload.password = UI.getVal('usuario-password');
+      const payload = {
+        nombre, apellido, email, rol_id,
+        estado: document.getElementById('usuario-estado').checked,
+      };
+      if (rolSeleccionado?.nombre === 'DOCENTE') {
+        payload.materia_ids = materia_ids;
+      }
 
+      if (!isEditar) {
+        const pwd = UI.getVal('usuario-password');
+        if (!pwd || pwd.length < 8) {
+          UI.modalAlert('usuario-alert', 'La contraseña debe tener al menos 8 caracteres');
+          return;
+        }
+        payload.password = pwd;
+      }
+
+      const saveBtn = document.getElementById('btn-guardar-usuario');
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';
+      try {
         if (isEditar) {
           await Api.editarUsuario(document.getElementById('usuario-id').value, payload);
           UI.toast('Usuario actualizado correctamente', 'success');
         } else {
-          if (!payload.password || payload.password.length < 8) {
-            UI.modalAlert('usuario-alert', 'La contraseña debe tener al menos 8 caracteres');
-            return;
-          }
           await Api.crearUsuario(payload);
           UI.toast('Usuario creado correctamente', 'success');
         }
         modal.hide();
         cargarUsuarios();
-      } catch(err) { UI.modalAlert('usuario-alert', err.message); }
-    };
+      } catch(err) {
+        UI.modalAlert('usuario-alert', err.message);
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="bi bi-save me-1"></i>Guardar';
+      }
+    });
   };
 
   /* ── Modal asignar materias (acceso rápido desde tabla) ──── */
@@ -285,7 +300,11 @@ const UsuariosView = (() => {
     };
     document.getElementById('modal-usuario').addEventListener('hidden.bs.modal', restoreForm, { once: true });
 
-    document.getElementById('btn-guardar-usuario').onclick = async () => {
+    const btnAsigOld = document.getElementById('btn-guardar-usuario');
+    const btnAsigNew = btnAsigOld.cloneNode(true);
+    btnAsigOld.parentNode.replaceChild(btnAsigNew, btnAsigOld);
+
+    document.getElementById('btn-guardar-usuario').addEventListener('click', async () => {
       const materia_ids = [...document.querySelectorAll('.mat-asig-check:checked')].map(c => c.value);
       try {
         await Api.asignarMaterias(docenteId, { materia_ids });
@@ -293,7 +312,7 @@ const UsuariosView = (() => {
         modal.hide();
         cargarUsuarios();
       } catch(err) { UI.modalAlert('usuario-alert', err.message); }
-    };
+    });
   };
 
   const resetearPassword = async (userId) => {

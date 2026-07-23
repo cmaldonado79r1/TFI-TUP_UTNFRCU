@@ -1,7 +1,15 @@
 const router = require('express').Router();
 const multer = require('multer');
 const path = require('path');
-const { listarDocumentos, subirDocumento, eliminarDocumento, descargarDocumento } = require('../controllers/documentos.controller');
+const {
+  listarDocumentos,
+  getVersionesPorMateria,
+  subirDocumento,
+  revisarDocumento,
+  getHistorialRevisiones,
+  eliminarDocumento,
+  descargarDocumento
+} = require('../controllers/documentos.controller');
 const { verifyToken } = require('../middlewares/auth.middleware');
 
 const storage = multer.diskStorage({
@@ -21,9 +29,12 @@ const upload = multer({
   }
 });
 
-router.get('/', verifyToken, listarDocumentos);
-router.post('/', verifyToken, upload.single('archivo'), subirDocumento);
-router.delete('/:id', verifyToken, eliminarDocumento);
-router.get('/:id/descargar', verifyToken, descargarDocumento);
+router.get('/',                              verifyToken, listarDocumentos);
+router.post('/',                             verifyToken, upload.single('archivo'), subirDocumento);
+router.get('/versiones/:materia_id',         verifyToken, getVersionesPorMateria);
+router.put('/:id/revisar',                   verifyToken, revisarDocumento);
+router.get('/:id/historial',                 verifyToken, getHistorialRevisiones);
+router.delete('/:id',                        verifyToken, eliminarDocumento);
+router.get('/:id/descargar',                 verifyToken, descargarDocumento);
 
 module.exports = router;

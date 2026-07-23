@@ -121,10 +121,13 @@ const Api = (() => {
     eliminarEvaluacion: (id)        => del(`/evaluaciones/${id}`),
 
     // Documentos
-    getDocumentos:   (p = {})       => get('/documentos', p),
-    subirDocumento:  (formData)     => upload('/documentos', formData),
-    eliminarDocumento: (id)         => del(`/documentos/${id}`),
-    descargarDocumento: (id, name)  => download(`/documentos/${id}/descargar`, {}, name),
+    getDocumentos:         (p = {})          => get('/documentos', p),
+    getVersionesDocumento: (materia_id)      => get(`/documentos/versiones/${materia_id}`),
+    subirDocumento:        (formData)        => upload('/documentos', formData),
+    revisarDocumento:      (id, body)        => put(`/documentos/${id}/revisar`, body),
+    getHistorialDoc:       (id)              => get(`/documentos/${id}/historial`),
+    eliminarDocumento:     (id)              => del(`/documentos/${id}`),
+    descargarDocumento:    (id, name)        => download(`/documentos/${id}/descargar`, {}, name),
 
     // Aprobaciones
     getPendientes:   ()             => get('/aprobaciones/pendientes'),

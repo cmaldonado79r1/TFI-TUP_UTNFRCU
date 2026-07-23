@@ -196,15 +196,13 @@
           <label class="form-label fw-semibold">Nombre / Descripción</label>
           <input type="text" id="eval-nombre" class="form-control" placeholder="Ej: Primer parcial"/>
         </div>
-        <div class="row g-2">
-          <div class="col-6">
-            <label class="form-label fw-semibold">Materia *</label>
-            <select id="eval-materia" class="form-select"></select>
-          </div>
-          <div class="col-6">
-            <label class="form-label fw-semibold">Curso *</label>
-            <select id="eval-curso" class="form-select"></select>
-          </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Materia *</label>
+          <select id="eval-materia" class="form-select"></select>
+          <small class="text-muted">El curso se infiere de la materia seleccionada.</small>
+        </div>
+        <div id="eval-curso-row" style="display:none">
+          <input type="hidden" id="eval-curso"/>
         </div>
         <div class="row g-2 mt-1">
           <div class="col-6">
@@ -366,6 +364,107 @@
   </div>
 </div>
 
+<!-- MODAL CURSO -->
+<div class="modal fade" id="modal-curso" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary-custom text-white">
+        <h5 class="modal-title" id="modal-curso-title">Nuevo Curso</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="curso-id"/>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Nombre *</label>
+          <input type="text" id="curso-nombre" class="form-control" placeholder="Ej: 3° año A"/>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label fw-semibold">Nivel (año) *</label>
+            <input type="number" id="curso-nivel" class="form-control" min="1" max="7" value="1"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold">Turno *</label>
+            <select id="curso-turno" class="form-select"></select>
+          </div>
+        </div>
+        <div class="mb-3 mt-2">
+          <label class="form-label fw-semibold">Año lectivo *</label>
+          <input type="number" id="curso-anio" class="form-control" min="2020" max="2040"/>
+        </div>
+        <div class="mb-3">
+          <div class="form-check form-switch">
+            <input type="checkbox" id="curso-activo" class="form-check-input" checked/>
+            <label for="curso-activo" class="form-check-label">Curso activo</label>
+          </div>
+        </div>
+        <div id="curso-alert" class="alert d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" id="btn-guardar-curso"><i class="bi bi-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REVISIÓN DE DOCUMENTO -->
+<div class="modal fade" id="modal-revision" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title"><i class="bi bi-clipboard2-check me-2"></i>Revisar Documento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          <strong>Documento:</strong>
+          <span id="rev-doc-nombre" class="text-primary"></span>
+        </p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Decisión *</label>
+          <select id="rev-estado" class="form-select">
+            <option value="APROBADO">✅ Aprobar — el documento queda aprobado e inmutable</option>
+            <option value="REVISION_REQUERIDA">❌ Solicitar revisión — vuelve al docente para corregir</option>
+          </select>
+        </div>
+        <div class="mb-3" id="rev-comentario-group" style="display:none">
+          <label class="form-label fw-semibold">Observación para el docente *</label>
+          <textarea id="rev-comentario" class="form-control" rows="3"
+                    placeholder="Indicá qué debe corregir o agregar el docente…"></textarea>
+        </div>
+        <div id="rev-alert" class="alert d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-warning fw-semibold" id="btn-confirmar-revision">
+          <i class="bi bi-check-lg me-1"></i>Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VERSIONES DE DOCUMENTO -->
+<div class="modal fade" id="modal-versiones" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-primary-custom text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-clock-history me-2"></i>
+          <span id="modal-versiones-title">Historial de versiones</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modal-versiones-body">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:9999">
   <div id="app-toast" class="toast align-items-center border-0" role="alert">
@@ -387,7 +486,7 @@
 <script src="/js/views/auditoria.js"></script>
 <script src="/js/views/usuarios.js"></script>
 <script src="/js/views/materias.js"></script>
-<script src="/js/views/actividades.js"></script>
+<script src="/js/views/cursos.js"></script>
 <script src="/js/views/reportes.js"></script>
 <script src="/js/app.js"></script>
 </body>

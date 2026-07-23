@@ -40,10 +40,14 @@ const ClasesView = (() => {
       <div id="clases-container"></div>
     </div>`;
 
-    // Cargar materias para filtro
+    // Cargar materias para filtro (muestra nombre + curso para distinguir materias homónimas)
     try {
       _materias = await Api.getMaterias();
-      UI.fillSelect('filtro-materia', _materias, 'id', 'nombre', 'Todas las materias');
+      const sel = document.getElementById('filtro-materia');
+      sel.innerHTML = '<option value="">Todas las materias</option>' +
+        _materias.map(m =>
+          `<option value="${m.id}">${m.nombre}${m.curso_nombre ? ' — ' + m.curso_nombre : ''}</option>`
+        ).join('');
     } catch(e) {}
 
     document.getElementById('btn-filtrar')?.addEventListener('click', () => {

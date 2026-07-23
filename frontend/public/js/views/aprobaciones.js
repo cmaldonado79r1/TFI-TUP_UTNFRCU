@@ -169,13 +169,15 @@ const AprobacionesView = (() => {
 
     btn.addEventListener('click', async () => {
       const comentarios = document.getElementById('visar-comentarios').value.trim();
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Visando...';
       try {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Visando...';
         const r = await Api.aprobar({ clase_id: claseId, estado: 'APROBADO', comentarios });
         UI.toast(r.message || 'Clase visada correctamente ✓', 'success');
+        // Esperar que Bootstrap termine de cerrar el modal antes de recargar el DOM
+        const modalEl = document.getElementById('modal-visar');
+        modalEl.addEventListener('hidden.bs.modal', () => cargarPendientes(), { once: true });
         modal.hide();
-        cargarPendientes();
       } catch(err) {
         UI.modalAlert('visar-alert', err.message);
         btn.disabled = false;

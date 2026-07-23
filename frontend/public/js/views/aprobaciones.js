@@ -1,40 +1,118 @@
 /* ── Vista Aprobaciones ──────────────────────────────────── */
 const AprobacionesView = (() => {
+  let _todos = [];   // caché completa de pendientes
+
   const render = async () => {
     const mc = document.getElementById('main-content');
     mc.innerHTML = `<div class="fade-in">
       <div class="d-flex align-items-center justify-content-between mb-3">
         <h4 class="mb-0 text-primary-custom fw-bold"><i class="bi bi-clipboard2-check me-2"></i>Bandeja de Revisión</h4>
-        <button class="btn btn-outline-secondary btn-sm" id="btn-refresh-pend"><i class="bi bi-arrow-clockwise me-1"></i>Actualizar</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btn-refresh-pend">
+          <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+        </button>
       </div>
+
+      <!-- Filtros -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+          <div class="row g-2 align-items-end">
+            <div class="col-sm-4">
+              <label class="form-label small mb-1">Docente</label>
+              <select id="filtro-pend-docente" class="form-select form-select-sm">
+                <option value="">Todos los docentes</option>
+              </select>
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label small mb-1">Materia</label>
+              <select id="filtro-pend-materia" class="form-select form-select-sm">
+                <option value="">Todas las materias</option>
+              </select>
+            </div>
+            <div class="col-sm-4 d-flex gap-1 align-items-end">
+              <button class="btn btn-outline-secondary btn-sm" id="btn-limpiar-filtros-pend" title="Limpiar filtros">
+                <i class="bi bi-x-lg me-1"></i>Limpiar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="pendientes-container"></div>
     </div>`;
+
     document.getElementById('btn-refresh-pend').addEventListener('click', cargarPendientes);
+    document.getElementById('filtro-pend-docente').addEventListener('change', aplicarFiltros);
+    document.getElementById('filtro-pend-materia').addEventListener('change', aplicarFiltros);
+    document.getElementById('btn-limpiar-filtros-pend').addEventListener('click', () => {
+      document.getElementById('filtro-pend-docente').value = '';
+      document.getElementById('filtro-pend-materia').value = '';
+      aplicarFiltros();
+    });
+
     cargarPendientes();
   };
 
   const cargarPendientes = async () => {
     UI.loader('pendientes-container');
     try {
-      const pendientes = await Api.getPendientes();
-      if (!pendientes.length) {
-        UI.empty('pendientes-container', 'No hay clases pendientes de revisión 🎉', 'check2-circle');
-        return;
-      }
-      document.getElementById('pendientes-container').innerHTML = `
-        <div class="row g-3">
-          ${pendientes.map(renderTarjetaPendiente).join('')}
-        </div>`;
-      document.querySelectorAll('[data-ver-pendiente]').forEach(btn => {
-        btn.addEventListener('click', () => ClasesView.verClase(btn.dataset.verPendiente));
-      });
-      document.querySelectorAll('[data-visar]').forEach(btn => {
-        btn.addEventListener('click', () => abrirModalVisar(btn.dataset.visar, btn.dataset.materia, btn.dataset.fecha));
-      });
+      _todos = await Api.getPendientes();
+      poblarFiltros(_todos);
+      aplicarFiltros();
     } catch(e) {
       document.getElementById('pendientes-container').innerHTML =
         `<div class="alert alert-danger">Error al cargar pendientes: ${e.message}</div>`;
     }
+  };
+
+  /* Rellena los <select> con los valores únicos presentes en la lista */
+  const poblarFiltros = (lista) => {
+    const docSel = document.getElementById('filtro-pend-docente');
+    const matSel = document.getElementById('filtro-pend-materia');
+    if (!docSel || !matSel) return;
+
+    const docActual = docSel.value;
+    const matActual = matSel.value;
+
+    const docentes = [...new Map(lista.map(c => [c.docente_nombre, c.docente_nombre])).entries()];
+    const materias = [...new Map(lista.map(c => [c.materia_nombre, c.materia_nombre])).entries()];
+
+    docSel.innerHTML = '<option value="">Todos los docentes</option>' +
+      docentes.map(([v]) => `<option value="${v}" ${v === docActual ? 'selected' : ''}>${v}</option>`).join('');
+
+    matSel.innerHTML = '<option value="">Todas las materias</option>' +
+      materias.map(([v]) => `<option value="${v}" ${v === matActual ? 'selected' : ''}>${v}</option>`).join('');
+  };
+
+  /* Filtra _todos en el cliente y re-renderiza las tarjetas */
+  const aplicarFiltros = () => {
+    const docFiltro = document.getElementById('filtro-pend-docente')?.value || '';
+    const matFiltro = document.getElementById('filtro-pend-materia')?.value || '';
+
+    const filtrados = _todos.filter(c =>
+      (!docFiltro || c.docente_nombre === docFiltro) &&
+      (!matFiltro || c.materia_nombre === matFiltro)
+    );
+
+    const container = document.getElementById('pendientes-container');
+    if (!filtrados.length) {
+      UI.empty('pendientes-container',
+        _todos.length ? 'Ninguna clase coincide con los filtros seleccionados' : 'No hay clases pendientes de revisión 🎉',
+        _todos.length ? 'funnel' : 'check2-circle'
+      );
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="row g-3">
+        ${filtrados.map(renderTarjetaPendiente).join('')}
+      </div>`;
+
+    container.querySelectorAll('[data-ver-pendiente]').forEach(btn => {
+      btn.addEventListener('click', () => ClasesView.verClase(btn.dataset.verPendiente));
+    });
+    container.querySelectorAll('[data-visar]').forEach(btn => {
+      btn.addEventListener('click', () => abrirModalVisar(btn.dataset.visar, btn.dataset.materia, btn.dataset.fecha));
+    });
   };
 
   const renderTarjetaPendiente = (c) => `

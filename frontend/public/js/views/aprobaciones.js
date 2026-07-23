@@ -74,13 +74,19 @@ const AprobacionesView = (() => {
     const matActual = matSel.value;
 
     const docentes = [...new Map(lista.map(c => [c.docente_nombre, c.docente_nombre])).entries()];
-    const materias = [...new Map(lista.map(c => [c.materia_nombre, c.materia_nombre])).entries()];
+    // key única: "materia|||curso" para distinguir homónimas entre cursos
+    const materias = [...new Map(lista.map(c => {
+      const key = `${c.materia_nombre}|||${c.curso_nombre}`;
+      return [key, { key, materia: c.materia_nombre, curso: c.curso_nombre }];
+    })).values()];
 
     docSel.innerHTML = '<option value="">Todos los docentes</option>' +
       docentes.map(([v]) => `<option value="${v}" ${v === docActual ? 'selected' : ''}>${v}</option>`).join('');
 
     matSel.innerHTML = '<option value="">Todas las materias</option>' +
-      materias.map(([v]) => `<option value="${v}" ${v === matActual ? 'selected' : ''}>${v}</option>`).join('');
+      materias.map(m =>
+        `<option value="${m.key}" ${m.key === matActual ? 'selected' : ''}>${m.materia} — ${m.curso}</option>`
+      ).join('');
   };
 
   /* Filtra _todos en el cliente y re-renderiza las tarjetas */
@@ -90,7 +96,7 @@ const AprobacionesView = (() => {
 
     const filtrados = _todos.filter(c =>
       (!docFiltro || c.docente_nombre === docFiltro) &&
-      (!matFiltro || c.materia_nombre === matFiltro)
+      (!matFiltro || `${c.materia_nombre}|||${c.curso_nombre}` === matFiltro)
     );
 
     const container = document.getElementById('pendientes-container');

@@ -1,6 +1,15 @@
 /* ── Vista Documentos ─────────────────────────────────────── */
 const DocumentosView = (() => {
 
+  /* ── Estado local para búsqueda/orden ── */
+  let _otros    = [];  // caché tab Otros
+  let _sortOtros    = 'fecha'; let _sortDirOtros    = -1;
+  let _pendientes = [];  // caché tab Pendientes
+  let _sortPend     = 'fecha'; let _sortDirPend     = -1;
+
+  const sortIconD = (col, by, dir) =>
+    by !== col ? 'bi-arrow-down-up text-muted' : (dir === 1 ? 'bi-arrow-up' : 'bi-arrow-down');
+
   const render = async () => {
     const user = App.getUser();
     const mc = document.getElementById('main-content');
@@ -289,70 +298,156 @@ const DocumentosView = (() => {
 
   /* ─── Tab: Otros documentos (no-PROGRAMA) ────────────────── */
   const renderTabOtros = async () => {
-    const user = App.getUser();
     const cont = document.getElementById('docs-tab-content');
     cont.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>`;
     try {
       const docs = await Api.getDocumentos();
-      const otros = docs.filter(d => d.tipo !== 'PROGRAMA');
-      if (!otros.length) {
-        UI.empty('docs-tab-content', 'No hay documentos cargados', 'file-earmark-x');
-        return;
-      }
+      _otros = docs.filter(d => d.tipo !== 'PROGRAMA');
+      _sortOtros = 'fecha'; _sortDirOtros = -1;
+
       cont.innerHTML = `
         <div class="card shadow-sm">
+          <div class="card-header bg-white border-bottom py-2 px-3">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <div class="input-group input-group-sm" style="max-width:320px">
+                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="busq-otros" class="form-control"
+                       placeholder="Buscar por archivo, materia, curso…">
+              </div>
+            </div>
+          </div>
           <div class="table-responsive">
-            <table class="table table-sgca table-hover mb-0">
+            <table class="table table-sgca table-hover mb-0" id="tabla-otros">
               <thead><tr>
-                <th>Archivo</th><th>Tipo</th><th>Materia</th><th>Curso</th>
-                <th>Subido por</th><th>Estado</th><th>Fecha</th><th></th>
+                <th class="sortable-th" data-sort-otros="nombre" style="cursor:pointer">
+                  Archivo <i class="bi bi-arrow-down-up text-muted" id="si-otros-nombre"></i></th>
+                <th>Tipo</th>
+                <th class="sortable-th" data-sort-otros="materia" style="cursor:pointer">
+                  Materia <i class="bi bi-arrow-down-up text-muted" id="si-otros-materia"></i></th>
+                <th class="sortable-th" data-sort-otros="curso" style="cursor:pointer">
+                  Curso <i class="bi bi-arrow-down-up text-muted" id="si-otros-curso"></i></th>
+                <th class="sortable-th" data-sort-otros="subido" style="cursor:pointer">
+                  Subido por <i class="bi bi-arrow-down-up text-muted" id="si-otros-subido"></i></th>
+                <th class="sortable-th" data-sort-otros="estado" style="cursor:pointer">
+                  Estado <i class="bi bi-arrow-down-up text-muted" id="si-otros-estado"></i></th>
+                <th class="sortable-th" data-sort-otros="fecha" style="cursor:pointer">
+                  Fecha <i class="bi bi-arrow-down-up text-muted" id="si-otros-fecha"></i></th>
+                <th></th>
               </tr></thead>
-              <tbody>
-                ${otros.map(d => `<tr>
-                  <td>
-                    <i class="bi ${iconoTipo(d.nombre_original)} me-2 text-primary"></i>
-                    <span class="fw-semibold">${d.nombre_original || d.nombre_archivo}</span>
-                  </td>
-                  <td><span class="badge bg-info text-dark">${d.tipo}</span></td>
-                  <td>${d.materia_nombre}</td>
-                  <td><span class="badge bg-light text-dark border">${d.curso_nombre || '—'}</span></td>
-                  <td class="text-muted small">${d.subido_por_nombre}</td>
-                  <td>${estadoDocBadge(d.estado)}</td>
-                  <td class="text-muted small">${UI.fecha(d.fecha_creacion)}</td>
-                  <td>
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary"
-                              data-dl-id="${d.id}" data-dl-nombre="${d.nombre_original}"
-                              title="Descargar"><i class="bi bi-download"></i></button>
-                      ${d.estado !== 'APROBADO' && (user.rol !== 'DOCENTE' || d.cargado_por === (App.getUser()?.id)) ? `
-                      <button class="btn btn-outline-danger"
-                              data-del-doc="${d.id}" title="Eliminar">
-                        <i class="bi bi-trash"></i>
-                      </button>` : ''}
-                    </div>
-                  </td>
-                </tr>`).join('')}
-              </tbody>
+              <tbody id="tbody-otros"></tbody>
             </table>
           </div>
+          <div class="card-footer text-muted small py-2" id="footer-otros"></div>
         </div>`;
 
-      cont.querySelectorAll('[data-dl-id]').forEach(btn => {
-        btn.addEventListener('click', () => _descargar(btn.dataset.dlId, btn.dataset.dlNombre));
-      });
-      cont.querySelectorAll('[data-del-doc]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!UI.confirm('¿Eliminar este documento?')) return;
-          try {
-            await Api.eliminarDocumento(btn.dataset.delDoc);
-            UI.toast('Documento eliminado', 'success');
-            renderTabOtros();
-          } catch(e) { UI.toast(e.message, 'error'); }
+      aplicarFiltroOtros();
+
+      document.getElementById('busq-otros').addEventListener('input', aplicarFiltroOtros);
+
+      document.querySelectorAll('[data-sort-otros]').forEach(th => {
+        th.addEventListener('click', () => {
+          const col = th.dataset.sortOtros;
+          if (_sortOtros === col) _sortDirOtros *= -1;
+          else { _sortOtros = col; _sortDirOtros = 1; }
+          aplicarFiltroOtros();
         });
       });
     } catch(e) {
       cont.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
     }
+  };
+
+  const aplicarFiltroOtros = () => {
+    const user = App.getUser();
+    const q = (document.getElementById('busq-otros')?.value || '').toLowerCase();
+    let lista = _otros.filter(d => {
+      if (!q) return true;
+      return (d.nombre_original || d.nombre_archivo || '').toLowerCase().includes(q)
+          || (d.materia_nombre || '').toLowerCase().includes(q)
+          || (d.curso_nombre  || '').toLowerCase().includes(q)
+          || (d.subido_por_nombre || '').toLowerCase().includes(q)
+          || (d.tipo || '').toLowerCase().includes(q);
+    });
+
+    lista.sort((a, b) => {
+      let va, vb;
+      switch (_sortOtros) {
+        case 'nombre':  va = (a.nombre_original||a.nombre_archivo||'').toLowerCase(); vb = (b.nombre_original||b.nombre_archivo||'').toLowerCase(); break;
+        case 'materia': va = (a.materia_nombre||'').toLowerCase(); vb = (b.materia_nombre||'').toLowerCase(); break;
+        case 'curso':   va = (a.curso_nombre||'').toLowerCase();   vb = (b.curso_nombre||'').toLowerCase();   break;
+        case 'subido':  va = (a.subido_por_nombre||'').toLowerCase(); vb = (b.subido_por_nombre||'').toLowerCase(); break;
+        case 'estado':  va = (a.estado||'').toLowerCase(); vb = (b.estado||'').toLowerCase(); break;
+        default:        va = a.fecha_creacion||''; vb = b.fecha_creacion||'';
+      }
+      return va < vb ? -_sortDirOtros : va > vb ? _sortDirOtros : 0;
+    });
+
+    // Actualizar íconos de sort
+    ['nombre','materia','curso','subido','estado','fecha'].forEach(col => {
+      const el = document.getElementById(`si-otros-${col}`);
+      if (el) el.className = `bi ${sortIconD(col, _sortOtros, _sortDirOtros)}`;
+    });
+
+    const tbody = document.getElementById('tbody-otros');
+    if (!tbody) return;
+
+    if (!lista.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">
+        <i class="bi bi-search me-2"></i>Sin resultados para la búsqueda
+      </td></tr>`;
+      const footer = document.getElementById('footer-otros');
+      if (footer) footer.textContent = '0 documentos';
+      return;
+    }
+
+    tbody.innerHTML = lista.map(d => `<tr>
+      <td>
+        <i class="bi ${iconoTipo(d.nombre_original)} me-2 text-primary"></i>
+        <span class="fw-semibold">${d.nombre_original || d.nombre_archivo}</span>
+      </td>
+      <td><span class="badge bg-info text-dark">${d.tipo}</span></td>
+      <td>${d.materia_nombre}</td>
+      <td><span class="badge bg-light text-dark border">${d.curso_nombre || '—'}</span></td>
+      <td class="text-muted small">${d.subido_por_nombre}</td>
+      <td>${estadoDocBadge(d.estado)}</td>
+      <td class="text-muted small">${UI.fecha(d.fecha_creacion)}</td>
+      <td>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-primary"
+                  data-dl-id="${d.id}" data-dl-nombre="${d.nombre_original}"
+                  title="Descargar"><i class="bi bi-download"></i></button>
+          ${d.estado !== 'APROBADO' && (user.rol !== 'DOCENTE' || d.cargado_por === (App.getUser()?.id)) ? `
+          <button class="btn btn-outline-danger"
+                  data-del-doc="${d.id}" title="Eliminar">
+            <i class="bi bi-trash"></i>
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+
+    const footer = document.getElementById('footer-otros');
+    if (footer) {
+      const total = _otros.length;
+      footer.textContent = lista.length === total
+        ? `${total} documento${total !== 1 ? 's' : ''}`
+        : `${lista.length} de ${total} documentos`;
+    }
+
+    // Re-bind action buttons
+    const cont = document.getElementById('docs-tab-content');
+    cont.querySelectorAll('[data-dl-id]').forEach(btn => {
+      btn.addEventListener('click', () => _descargar(btn.dataset.dlId, btn.dataset.dlNombre));
+    });
+    cont.querySelectorAll('[data-del-doc]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!UI.confirm('¿Eliminar este documento?')) return;
+        try {
+          await Api.eliminarDocumento(btn.dataset.delDoc);
+          UI.toast('Documento eliminado', 'success');
+          renderTabOtros();
+        } catch(e) { UI.toast(e.message, 'error'); }
+      });
+    });
   };
 
   /* ─── Tab: Pendientes de revisión ────────────────────────── */
@@ -361,63 +456,138 @@ const DocumentosView = (() => {
     cont.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>`;
     try {
       const docs = await Api.getDocumentos();
-      const pendientes = docs.filter(d => d.estado === 'PENDIENTE' || d.estado === 'REVISION_REQUERIDA');
+      _pendientes = docs.filter(d => d.estado === 'PENDIENTE' || d.estado === 'REVISION_REQUERIDA');
+      _sortPend = 'fecha'; _sortDirPend = -1;
 
-      if (!pendientes.length) {
+      if (!_pendientes.length) {
         UI.empty('docs-tab-content', 'No hay documentos pendientes de revisión', 'clipboard2-check');
         return;
       }
 
       cont.innerHTML = `
         <div class="card shadow-sm">
-          <div class="card-header bg-warning bg-opacity-10 py-2">
-            <strong><i class="bi bi-hourglass-split me-2 text-warning"></i>
-            ${pendientes.length} documento${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''} de revisión</strong>
+          <div class="card-header bg-warning bg-opacity-10 py-2 px-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+              <strong><i class="bi bi-hourglass-split me-2 text-warning"></i>Pendientes de revisión</strong>
+              <div class="input-group input-group-sm ms-auto" style="max-width:300px">
+                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="busq-pend-doc" class="form-control"
+                       placeholder="Buscar por archivo, materia, docente…">
+              </div>
+            </div>
           </div>
           <div class="table-responsive">
-            <table class="table table-sgca table-hover mb-0">
+            <table class="table table-sgca table-hover mb-0" id="tabla-pend">
               <thead><tr>
-                <th>Archivo</th><th>Tipo</th><th>Materia · Curso</th>
-                <th>Docente</th><th>Versión</th><th>Estado</th><th>Fecha</th><th></th>
+                <th class="sortable-th" data-sort-pend="nombre" style="cursor:pointer">
+                  Archivo <i class="bi bi-arrow-down-up text-muted" id="si-pend-nombre"></i></th>
+                <th>Tipo</th>
+                <th class="sortable-th" data-sort-pend="materia" style="cursor:pointer">
+                  Materia · Curso <i class="bi bi-arrow-down-up text-muted" id="si-pend-materia"></i></th>
+                <th class="sortable-th" data-sort-pend="docente" style="cursor:pointer">
+                  Docente <i class="bi bi-arrow-down-up text-muted" id="si-pend-docente"></i></th>
+                <th>Versión</th>
+                <th class="sortable-th" data-sort-pend="estado" style="cursor:pointer">
+                  Estado <i class="bi bi-arrow-down-up text-muted" id="si-pend-estado"></i></th>
+                <th class="sortable-th" data-sort-pend="fecha" style="cursor:pointer">
+                  Fecha <i class="bi bi-arrow-down-up text-muted" id="si-pend-fecha"></i></th>
+                <th></th>
               </tr></thead>
-              <tbody>
-                ${pendientes.map(d => `<tr>
-                  <td><i class="bi ${iconoTipo(d.nombre_original)} me-2 text-primary"></i>
-                      <span class="fw-semibold">${d.nombre_original || d.nombre_archivo}</span></td>
-                  <td><span class="badge bg-info text-dark">${d.tipo}</span></td>
-                  <td><strong>${d.materia_nombre}</strong><br>
-                      <span class="badge bg-light text-dark border small">${d.curso_nombre || '—'}</span></td>
-                  <td class="text-muted small">${d.subido_por_nombre}</td>
-                  <td class="text-center"><span class="badge bg-secondary">v${d.version}</span></td>
-                  <td>${estadoDocBadge(d.estado)}</td>
-                  <td class="text-muted small">${UI.fecha(d.fecha_creacion)}</td>
-                  <td>
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary"
-                              data-dl-id="${d.id}" data-dl-nombre="${d.nombre_original}"
-                              title="Descargar"><i class="bi bi-download"></i></button>
-                      <button class="btn btn-warning"
-                              data-revisar-doc="${d.id}"
-                              data-doc-nombre="${d.nombre_original}">
-                        <i class="bi bi-clipboard2-check me-1"></i>Revisar
-                      </button>
-                    </div>
-                  </td>
-                </tr>`).join('')}
-              </tbody>
+              <tbody id="tbody-pend"></tbody>
             </table>
           </div>
+          <div class="card-footer text-muted small py-2" id="footer-pend"></div>
         </div>`;
 
-      cont.querySelectorAll('[data-dl-id]').forEach(btn => {
-        btn.addEventListener('click', () => _descargar(btn.dataset.dlId, btn.dataset.dlNombre));
-      });
-      cont.querySelectorAll('[data-revisar-doc]').forEach(btn => {
-        btn.addEventListener('click', () => abrirModalRevisar(btn.dataset.revisarDoc, btn.dataset.docNombre));
+      aplicarFiltroPendientes();
+
+      document.getElementById('busq-pend-doc').addEventListener('input', aplicarFiltroPendientes);
+
+      document.querySelectorAll('[data-sort-pend]').forEach(th => {
+        th.addEventListener('click', () => {
+          const col = th.dataset.sortPend;
+          if (_sortPend === col) _sortDirPend *= -1;
+          else { _sortPend = col; _sortDirPend = 1; }
+          aplicarFiltroPendientes();
+        });
       });
     } catch(e) {
       cont.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
     }
+  };
+
+  const aplicarFiltroPendientes = () => {
+    const q = (document.getElementById('busq-pend-doc')?.value || '').toLowerCase();
+    let lista = _pendientes.filter(d => {
+      if (!q) return true;
+      return (d.nombre_original || d.nombre_archivo || '').toLowerCase().includes(q)
+          || (d.materia_nombre || '').toLowerCase().includes(q)
+          || (d.curso_nombre  || '').toLowerCase().includes(q)
+          || (d.subido_por_nombre || '').toLowerCase().includes(q)
+          || (d.tipo || '').toLowerCase().includes(q);
+    });
+
+    lista.sort((a, b) => {
+      let va, vb;
+      switch (_sortPend) {
+        case 'nombre':  va = (a.nombre_original||a.nombre_archivo||'').toLowerCase(); vb = (b.nombre_original||b.nombre_archivo||'').toLowerCase(); break;
+        case 'materia': va = (a.materia_nombre||'').toLowerCase(); vb = (b.materia_nombre||'').toLowerCase(); break;
+        case 'docente': va = (a.subido_por_nombre||'').toLowerCase(); vb = (b.subido_por_nombre||'').toLowerCase(); break;
+        case 'estado':  va = (a.estado||'').toLowerCase(); vb = (b.estado||'').toLowerCase(); break;
+        default:        va = a.fecha_creacion||''; vb = b.fecha_creacion||'';
+      }
+      return va < vb ? -_sortDirPend : va > vb ? _sortDirPend : 0;
+    });
+
+    // Actualizar íconos de sort
+    ['nombre','materia','docente','estado','fecha'].forEach(col => {
+      const el = document.getElementById(`si-pend-${col}`);
+      if (el) el.className = `bi ${sortIconD(col, _sortPend, _sortDirPend)}`;
+    });
+
+    const tbody = document.getElementById('tbody-pend');
+    if (!tbody) return;
+
+    tbody.innerHTML = lista.map(d => `<tr>
+      <td><i class="bi ${iconoTipo(d.nombre_original)} me-2 text-primary"></i>
+          <span class="fw-semibold">${d.nombre_original || d.nombre_archivo}</span></td>
+      <td><span class="badge bg-info text-dark">${d.tipo}</span></td>
+      <td><strong>${d.materia_nombre}</strong><br>
+          <span class="badge bg-light text-dark border small">${d.curso_nombre || '—'}</span></td>
+      <td class="text-muted small">${d.subido_por_nombre}</td>
+      <td class="text-center"><span class="badge bg-secondary">v${d.version}</span></td>
+      <td>${estadoDocBadge(d.estado)}</td>
+      <td class="text-muted small">${UI.fecha(d.fecha_creacion)}</td>
+      <td>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-primary"
+                  data-dl-id="${d.id}" data-dl-nombre="${d.nombre_original}"
+                  title="Descargar"><i class="bi bi-download"></i></button>
+          <button class="btn btn-warning"
+                  data-revisar-doc="${d.id}"
+                  data-doc-nombre="${d.nombre_original}">
+            <i class="bi bi-clipboard2-check me-1"></i>Revisar
+          </button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+    const footer = document.getElementById('footer-pend');
+    if (footer) {
+      const total = _pendientes.length;
+      footer.textContent = lista.length === total
+        ? `${total} pendiente${total !== 1 ? 's' : ''}`
+        : `${lista.length} de ${total} pendientes`;
+    }
+
+    // Re-bind action buttons
+    const cont = document.getElementById('docs-tab-content');
+    cont.querySelectorAll('[data-dl-id]').forEach(btn => {
+      btn.addEventListener('click', () => _descargar(btn.dataset.dlId, btn.dataset.dlNombre));
+    });
+    cont.querySelectorAll('[data-revisar-doc]').forEach(btn => {
+      btn.addEventListener('click', () => abrirModalRevisar(btn.dataset.revisarDoc, btn.dataset.docNombre));
+    });
   };
 
   /* ─── Badge pendientes ───────────────────────────────────── */

@@ -1,6 +1,8 @@
 /* ── Vista Aprobaciones ──────────────────────────────────── */
 const AprobacionesView = (() => {
-  let _todos = [];   // caché completa de pendientes
+  let _todos   = [];   // caché completa de pendientes
+  let _sortBy  = 'fecha_creacion';
+  let _sortDir = 1;
 
   const render = async () => {
     const mc = document.getElementById('main-content');
@@ -16,21 +18,39 @@ const AprobacionesView = (() => {
       <div class="card shadow-sm mb-3">
         <div class="card-body py-2">
           <div class="row g-2 align-items-end">
-            <div class="col-sm-4">
+            <div class="col-sm-3">
+              <label class="form-label small mb-1">Buscar</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="busq-pend" class="form-control" placeholder="Materia, docente...">
+              </div>
+            </div>
+            <div class="col-sm-3">
               <label class="form-label small mb-1">Docente</label>
               <select id="filtro-pend-docente" class="form-select form-select-sm">
                 <option value="">Todos los docentes</option>
               </select>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-3">
               <label class="form-label small mb-1">Materia</label>
               <select id="filtro-pend-materia" class="form-select form-select-sm">
                 <option value="">Todas las materias</option>
               </select>
             </div>
-            <div class="col-sm-4 d-flex gap-1 align-items-end">
-              <button class="btn btn-outline-secondary btn-sm" id="btn-limpiar-filtros-pend" title="Limpiar filtros">
-                <i class="bi bi-x-lg me-1"></i>Limpiar
+            <div class="col-sm-2">
+              <label class="form-label small mb-1">Ordenar por</label>
+              <select id="sort-pend" class="form-select form-select-sm">
+                <option value="fecha_creacion:1">Enviado (más antiguo)</option>
+                <option value="fecha_creacion:-1">Enviado (más reciente)</option>
+                <option value="materia_nombre:1">Materia A→Z</option>
+                <option value="docente_nombre:1">Docente A→Z</option>
+                <option value="fecha:1">Fecha clase (asc)</option>
+                <option value="fecha:-1">Fecha clase (desc)</option>
+              </select>
+            </div>
+            <div class="col-sm-1 d-flex align-items-end">
+              <button class="btn btn-outline-secondary btn-sm w-100" id="btn-limpiar-filtros-pend" title="Limpiar">
+                <i class="bi bi-x-lg"></i>
               </button>
             </div>
           </div>
@@ -41,11 +61,20 @@ const AprobacionesView = (() => {
     </div>`;
 
     document.getElementById('btn-refresh-pend').addEventListener('click', cargarPendientes);
+    document.getElementById('busq-pend').addEventListener('input', aplicarFiltros);
     document.getElementById('filtro-pend-docente').addEventListener('change', aplicarFiltros);
     document.getElementById('filtro-pend-materia').addEventListener('change', aplicarFiltros);
+    document.getElementById('sort-pend').addEventListener('change', () => {
+      const [col, dir] = document.getElementById('sort-pend').value.split(':');
+      _sortBy = col; _sortDir = parseInt(dir);
+      aplicarFiltros();
+    });
     document.getElementById('btn-limpiar-filtros-pend').addEventListener('click', () => {
+      document.getElementById('busq-pend').value = '';
       document.getElementById('filtro-pend-docente').value = '';
       document.getElementById('filtro-pend-materia').value = '';
+      document.getElementById('sort-pend').value = 'fecha_creacion:1';
+      _sortBy = 'fecha_creacion'; _sortDir = 1;
       aplicarFiltros();
     });
 
@@ -89,15 +118,27 @@ const AprobacionesView = (() => {
       ).join('');
   };
 
-  /* Filtra _todos en el cliente y re-renderiza las tarjetas */
+  /* Filtra + ordena _todos en el cliente y re-renderiza las tarjetas */
   const aplicarFiltros = () => {
+    const busq     = (document.getElementById('busq-pend')?.value || '').toLowerCase();
     const docFiltro = document.getElementById('filtro-pend-docente')?.value || '';
     const matFiltro = document.getElementById('filtro-pend-materia')?.value || '';
 
-    const filtrados = _todos.filter(c =>
+    let filtrados = _todos.filter(c =>
+      (!busq     || c.materia_nombre.toLowerCase().includes(busq) ||
+                    c.docente_nombre.toLowerCase().includes(busq) ||
+                    c.curso_nombre.toLowerCase().includes(busq)) &&
       (!docFiltro || c.docente_nombre === docFiltro) &&
       (!matFiltro || `${c.materia_nombre}|||${c.curso_nombre}` === matFiltro)
     );
+
+    // Ordenar
+    filtrados = filtrados.slice().sort((a, b) => {
+      let va = a[_sortBy] ?? '', vb = b[_sortBy] ?? '';
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      return va < vb ? -_sortDir : va > vb ? _sortDir : 0;
+    });
 
     const container = document.getElementById('pendientes-container');
     if (!filtrados.length) {
@@ -111,6 +152,10 @@ const AprobacionesView = (() => {
     container.innerHTML = `
       <div class="row g-3">
         ${filtrados.map(renderTarjetaPendiente).join('')}
+      </div>
+      <div class="text-muted small mt-2 text-end">
+        ${filtrados.length} clase${filtrados.length !== 1 ? 's' : ''}
+        ${_todos.length !== filtrados.length ? ` de ${_todos.length}` : ''}
       </div>`;
 
     container.querySelectorAll('[data-ver-pendiente]').forEach(btn => {

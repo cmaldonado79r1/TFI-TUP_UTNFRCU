@@ -2,6 +2,12 @@
 const UsuariosView = (() => {
   let _roles    = [];
   let _materias = [];
+  let _usuarios = [];   // caché para búsqueda/sort
+  let _sortBy   = 'apellido';
+  let _sortDir  = 1;
+
+  const sortIcon = (col) => _sortBy !== col ? 'bi-arrow-down-up text-muted' :
+    (_sortDir === 1 ? 'bi-arrow-up' : 'bi-arrow-down');
 
   const render = async () => {
     const mc = document.getElementById('main-content');
@@ -31,6 +37,13 @@ const UsuariosView = (() => {
             <div class="col-sm-3">
               <button class="btn btn-primary btn-sm w-100" id="btn-filtrar-usr"><i class="bi bi-search me-1"></i>Filtrar</button>
             </div>
+            <div class="col-12 mt-1">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="busq-usr" class="form-control"
+                       placeholder="Buscar por nombre, apellido o email...">
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -42,6 +55,7 @@ const UsuariosView = (() => {
 
     document.getElementById('btn-nuevo-usuario').addEventListener('click', () => abrirModalUsuario());
     document.getElementById('btn-filtrar-usr').addEventListener('click', cargarUsuarios);
+    document.getElementById('busq-usr').addEventListener('input', aplicarBusqueda);
     cargarUsuarios();
   };
 
@@ -52,73 +66,115 @@ const UsuariosView = (() => {
         rol:    UI.getVal('filtro-rol-usr'),
         estado: UI.getVal('filtro-estado-usr'),
       };
-      const usuarios = await Api.getUsuarios(params);
-      if (!usuarios.length) { UI.empty('usuarios-container', 'No hay usuarios registrados', 'person-x'); return; }
-      document.getElementById('usuarios-container').innerHTML = `
-        <div class="card shadow-sm">
-          <div class="table-responsive">
-            <table class="table table-sgca table-hover mb-0">
-              <thead><tr>
-                <th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th>Acciones</th>
-              </tr></thead>
-              <tbody>
-                ${usuarios.map(u => `<tr>
-                  <td><strong>${u.apellido}, ${u.nombre}</strong></td>
-                  <td>${u.email}</td>
-                  <td><span class="badge ${rolColor(u.rol)}">${rolLabel(u.rol)}</span></td>
-                  <td>${u.estado
-                    ? '<span class="badge bg-success">Activo</span>'
-                    : '<span class="badge bg-danger">Inactivo</span>'}</td>
-                  <td class="text-muted small">${UI.fechaHora(u.ultimo_acceso)}</td>
-                  <td>
-                    <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" data-editar-usr='${JSON.stringify(u).replace(/'/g, "&#39;")}' title="Editar">
-                        <i class="bi bi-pencil"></i>
-                      </button>
-                      ${u.rol === 'DOCENTE' ? `
-                      <button class="btn btn-outline-info" data-materias-usr="${u.id}" data-nombre="${u.nombre} ${u.apellido}" title="Asignar materias">
-                        <i class="bi bi-book"></i>
-                      </button>` : ''}
-                      <button class="btn btn-outline-warning" data-reset-pwd="${u.id}" title="Resetear contraseña">
-                        <i class="bi bi-key"></i>
-                      </button>
-                      <button class="btn btn-outline-${u.estado ? 'danger' : 'success'}" data-toggle-usr="${u.id}" data-estado="${u.estado}" title="${u.estado ? 'Desactivar' : 'Activar'}">
-                        <i class="bi bi-${u.estado ? 'person-dash' : 'person-check'}"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>`).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
-
-      document.querySelectorAll('[data-editar-usr]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          try { abrirModalUsuario(JSON.parse(btn.dataset.editarUsr)); } catch(e) {}
-        });
-      });
-      document.querySelectorAll('[data-materias-usr]').forEach(btn => {
-        btn.addEventListener('click', () => abrirModalMaterias(btn.dataset.materiasUsr, btn.dataset.nombre));
-      });
-      document.querySelectorAll('[data-reset-pwd]').forEach(btn => {
-        btn.addEventListener('click', () => resetearPassword(btn.dataset.resetPwd));
-      });
-      document.querySelectorAll('[data-toggle-usr]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const estado = btn.dataset.estado === 'true';
-          if (!UI.confirm(`¿${estado ? 'Desactivar' : 'Activar'} este usuario?`)) return;
-          try {
-            await Api.editarUsuario(btn.dataset.toggleUsr, { estado: !estado });
-            UI.toast('Estado actualizado', 'success');
-            cargarUsuarios();
-          } catch(e) { UI.toast(e.message, 'error'); }
-        });
-      });
+      _usuarios = await Api.getUsuarios(params);
+      aplicarBusqueda();
     } catch(e) {
       document.getElementById('usuarios-container').innerHTML =
         `<div class="alert alert-danger">Error: ${e.message}</div>`;
     }
+  };
+
+  const aplicarBusqueda = () => {
+    const busq = (document.getElementById('busq-usr')?.value || '').toLowerCase();
+    let lista = _usuarios.filter(u =>
+      !busq ||
+      u.nombre.toLowerCase().includes(busq) ||
+      u.apellido.toLowerCase().includes(busq) ||
+      u.email.toLowerCase().includes(busq)
+    );
+
+    lista = lista.slice().sort((a, b) => {
+      let va = a[_sortBy] ?? '', vb = b[_sortBy] ?? '';
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      return va < vb ? -_sortDir : va > vb ? _sortDir : 0;
+    });
+
+    if (!lista.length) { UI.empty('usuarios-container', 'No hay usuarios registrados', 'person-x'); return; }
+
+    const th = (col, label) =>
+      `<th style="cursor:pointer;user-select:none" data-sort="${col}">
+        ${label} <i class="bi ${sortIcon(col)} ms-1 small"></i>
+      </th>`;
+
+    document.getElementById('usuarios-container').innerHTML = `
+      <div class="card shadow-sm">
+        <div class="table-responsive">
+          <table class="table table-sgca table-hover mb-0">
+            <thead><tr>
+              ${th('apellido',      'Nombre')}
+              ${th('email',         'Email')}
+              ${th('rol',           'Rol')}
+              ${th('estado',        'Estado')}
+              ${th('ultimo_acceso', 'Último acceso')}
+              <th>Acciones</th>
+            </tr></thead>
+            <tbody>
+              ${lista.map(u => `<tr>
+                <td><strong>${u.apellido}, ${u.nombre}</strong></td>
+                <td>${u.email}</td>
+                <td><span class="badge ${rolColor(u.rol)}">${rolLabel(u.rol)}</span></td>
+                <td>${u.estado
+                  ? '<span class="badge bg-success">Activo</span>'
+                  : '<span class="badge bg-danger">Inactivo</span>'}</td>
+                <td class="text-muted small">${UI.fechaHora(u.ultimo_acceso)}</td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" data-editar-usr='${JSON.stringify(u).replace(/'/g, "&#39;")}' title="Editar">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    ${u.rol === 'DOCENTE' ? `
+                    <button class="btn btn-outline-info" data-materias-usr="${u.id}" data-nombre="${u.nombre} ${u.apellido}" title="Asignar materias">
+                      <i class="bi bi-book"></i>
+                    </button>` : ''}
+                    <button class="btn btn-outline-warning" data-reset-pwd="${u.id}" title="Resetear contraseña">
+                      <i class="bi bi-key"></i>
+                    </button>
+                    <button class="btn btn-outline-${u.estado ? 'danger' : 'success'}" data-toggle-usr="${u.id}" data-estado="${u.estado}" title="${u.estado ? 'Desactivar' : 'Activar'}">
+                      <i class="bi bi-${u.estado ? 'person-dash' : 'person-check'}"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="card-footer text-muted small py-1">
+          ${lista.length} usuario${lista.length !== 1 ? 's' : ''}
+          ${_usuarios.length !== lista.length ? ` de ${_usuarios.length}` : ''}
+        </div>
+      </div>`;
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (_sortBy === col) _sortDir *= -1;
+        else { _sortBy = col; _sortDir = 1; }
+        aplicarBusqueda();
+      });
+    });
+    document.querySelectorAll('[data-editar-usr]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        try { abrirModalUsuario(JSON.parse(btn.dataset.editarUsr)); } catch(e) {}
+      });
+    });
+    document.querySelectorAll('[data-materias-usr]').forEach(btn => {
+      btn.addEventListener('click', () => abrirModalMaterias(btn.dataset.materiasUsr, btn.dataset.nombre));
+    });
+    document.querySelectorAll('[data-reset-pwd]').forEach(btn => {
+      btn.addEventListener('click', () => resetearPassword(btn.dataset.resetPwd));
+    });
+    document.querySelectorAll('[data-toggle-usr]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const estado = btn.dataset.estado === 'true';
+        if (!UI.confirm(`¿${estado ? 'Desactivar' : 'Activar'} este usuario?`)) return;
+        try {
+          await Api.editarUsuario(btn.dataset.toggleUsr, { estado: !estado });
+          UI.toast('Estado actualizado', 'success');
+          cargarUsuarios();
+        } catch(e) { UI.toast(e.message, 'error'); }
+      });
+    });
   };
 
   /* ── Modal crear/editar usuario ─────────────────────────── */

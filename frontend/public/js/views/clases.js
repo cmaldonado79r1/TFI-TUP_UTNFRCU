@@ -1,7 +1,13 @@
 /* ── Vista Clases ────────────────────────────────────────── */
 const ClasesView = (() => {
   let _materias = [];
-  let _filtros = {};
+  let _filtros  = {};
+  let _clases   = [];   // caché para búsqueda/sort
+  let _sortBy   = 'fecha';
+  let _sortDir  = -1;   // más reciente primero
+
+  const sortIcon = (col) => _sortBy !== col ? 'bi-arrow-down-up text-muted' :
+    (_sortDir === 1 ? 'bi-arrow-up' : 'bi-arrow-down');
 
   const render = async () => {
     const user = App.getUser();
@@ -34,6 +40,13 @@ const ClasesView = (() => {
               <button class="btn btn-primary btn-sm flex-fill" id="btn-filtrar"><i class="bi bi-search me-1"></i>Filtrar</button>
               <button class="btn btn-outline-secondary btn-sm" id="btn-limpiar-filtros" title="Limpiar"><i class="bi bi-x-lg"></i></button>
             </div>
+            <div class="col-12">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="busq-clase" class="form-control"
+                       placeholder="Buscar en resultados: materia, docente, curso...">
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -61,13 +74,15 @@ const ClasesView = (() => {
     });
 
     document.getElementById('btn-limpiar-filtros')?.addEventListener('click', () => {
-      ['filtro-materia','filtro-estado','filtro-desde','filtro-hasta'].forEach(id => {
+      ['filtro-materia','filtro-estado','filtro-desde','filtro-hasta','busq-clase'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
       });
       _filtros = {};
       cargarClases();
     });
+
+    document.getElementById('busq-clase')?.addEventListener('input', aplicarBusqueda);
 
     document.getElementById('btn-nueva-clase')?.addEventListener('click', () => abrirFormClase());
 
@@ -77,32 +92,76 @@ const ClasesView = (() => {
   const cargarClases = async () => {
     UI.loader('clases-container');
     try {
-      const clases = await Api.getClases(_filtros);
-      if (!clases.length) { UI.empty('clases-container', 'No se encontraron clases', 'journal-x'); return; }
-      document.getElementById('clases-container').innerHTML = `
-        <div class="card shadow-sm">
-          <div class="table-responsive">
-            <table class="table table-sgca table-hover mb-0">
-              <thead><tr>
-                <th>N°</th><th>Fecha</th><th>Materia</th><th>Curso</th>
-                ${App.getUser().rol !== 'DOCENTE' ? '<th>Docente</th>' : ''}
-                <th>Carácter</th><th>Estado</th><th>Temas</th><th>Acciones</th>
-              </tr></thead>
-              <tbody>${clases.map(c => renderFila(c)).join('')}</tbody>
-            </table>
-          </div>
-        </div>`;
-      // Eventos
-      document.querySelectorAll('[data-ver-clase]').forEach(btn => {
-        btn.addEventListener('click', () => verClase(btn.dataset.verClase));
-      });
-      document.querySelectorAll('[data-editar-clase]').forEach(btn => {
-        btn.addEventListener('click', () => abrirFormClase(btn.dataset.editarClase));
-      });
+      _clases = await Api.getClases(_filtros);
+      aplicarBusqueda();
     } catch(e) {
       document.getElementById('clases-container').innerHTML =
         `<div class="alert alert-danger">Error al cargar clases: ${e.message}</div>`;
     }
+  };
+
+  const aplicarBusqueda = () => {
+    const busq = (document.getElementById('busq-clase')?.value || '').toLowerCase();
+    let lista = _clases.filter(c =>
+      !busq ||
+      c.materia_nombre.toLowerCase().includes(busq) ||
+      c.curso_nombre.toLowerCase().includes(busq) ||
+      (c.docente_nombre || '').toLowerCase().includes(busq) ||
+      (c.caracter || '').toLowerCase().includes(busq)
+    );
+
+    lista = lista.slice().sort((a, b) => {
+      let va = a[_sortBy] ?? '', vb = b[_sortBy] ?? '';
+      if (typeof va === 'string') va = va.toLowerCase();
+      if (typeof vb === 'string') vb = vb.toLowerCase();
+      return va < vb ? -_sortDir : va > vb ? _sortDir : 0;
+    });
+
+    const user = App.getUser();
+    if (!lista.length) { UI.empty('clases-container', 'No se encontraron clases', 'journal-x'); return; }
+
+    const th = (col, label) =>
+      `<th style="cursor:pointer;user-select:none" data-sort="${col}">
+        ${label} <i class="bi ${sortIcon(col)} ms-1 small"></i>
+      </th>`;
+
+    document.getElementById('clases-container').innerHTML = `
+      <div class="card shadow-sm">
+        <div class="table-responsive">
+          <table class="table table-sgca table-hover mb-0">
+            <thead><tr>
+              <th>N°</th>
+              ${th('fecha',         'Fecha')}
+              ${th('materia_nombre','Materia')}
+              ${th('curso_nombre',  'Curso')}
+              ${user.rol !== 'DOCENTE' ? th('docente_nombre','Docente') : ''}
+              ${th('caracter',      'Carácter')}
+              ${th('estado',        'Estado')}
+              <th>Temas</th><th>Acciones</th>
+            </tr></thead>
+            <tbody>${lista.map(c => renderFila(c)).join('')}</tbody>
+          </table>
+        </div>
+        <div class="card-footer text-muted small py-1">
+          ${lista.length} clase${lista.length !== 1 ? 's' : ''}
+          ${_clases.length !== lista.length ? ` de ${_clases.length}` : ''}
+        </div>
+      </div>`;
+
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (_sortBy === col) _sortDir *= -1;
+        else { _sortBy = col; _sortDir = 1; }
+        aplicarBusqueda();
+      });
+    });
+    document.querySelectorAll('[data-ver-clase]').forEach(btn => {
+      btn.addEventListener('click', () => verClase(btn.dataset.verClase));
+    });
+    document.querySelectorAll('[data-editar-clase]').forEach(btn => {
+      btn.addEventListener('click', () => abrirFormClase(btn.dataset.editarClase));
+    });
   };
 
   const renderFila = (c) => {

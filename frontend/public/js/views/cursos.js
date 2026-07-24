@@ -3,20 +3,15 @@ const CursosView = (() => {
 
   const TURNOS = ['Mañana', 'Tarde', 'Noche', 'Vespertino'];
 
-  let _todos  = [];   // caché completa
-  let _sortBy = 'nombre';
-  let _sortDir = 1;   // 1 asc, -1 desc
-  const user  = () => App.getUser();
+  let _todos   = [];          // caché completa (activos + inactivos)
+  let _sortBy  = 'nivel';
+  let _sortDir = 1;
 
-  /* ── helpers de display ─────────────────────────────────── */
-  const titleCase = (s) => s
-    ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
-    : s;
+  const sortIcon = (col) => _sortBy !== col
+    ? 'bi-arrow-down-up text-muted'
+    : (_sortDir === 1 ? 'bi-arrow-up' : 'bi-arrow-down');
 
-  const sortIcon = (col) => _sortBy !== col ? 'bi-arrow-down-up text-muted' :
-    (_sortDir === 1 ? 'bi-arrow-up' : 'bi-arrow-down');
-
-  /* ── render principal ───────────────────────────────────── */
+  /* ── render principal ─────────────────────────────────── */
   const render = async () => {
     const mc = document.getElementById('main-content');
     mc.innerHTML = `<div class="fade-in">
@@ -29,35 +24,34 @@ const CursosView = (() => {
         </button>
       </div>
 
-      <!-- Búsqueda -->
+      <!-- Filtros -->
       <div class="card shadow-sm mb-3">
         <div class="card-body py-2">
           <div class="row g-2 align-items-end">
-            <div class="col-sm-5">
+            <div class="col-sm-4">
               <label class="form-label small mb-1">Buscar</label>
               <div class="input-group input-group-sm">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
                 <input type="text" id="busq-curso" class="form-control"
-                       placeholder="Nombre del curso...">
+                       placeholder="Nombre, turno, año...">
               </div>
             </div>
             <div class="col-sm-3">
-              <label class="form-label small mb-1">Turno</label>
-              <select id="filtro-curso-turno" class="form-select form-select-sm">
-                <option value="">Todos los turnos</option>
-                ${TURNOS.map(t => `<option value="${t}">${t}</option>`).join('')}
+              <label class="form-label small mb-1">Estado</label>
+              <select id="filtro-curso-estado" class="form-select form-select-sm">
+                <option value="activo">Solo activos</option>
+                <option value="inactivo">Solo inactivos</option>
+                <option value="">Todos</option>
               </select>
             </div>
             <div class="col-sm-2">
-              <label class="form-label small mb-1">Estado</label>
-              <select id="filtro-curso-estado" class="form-select form-select-sm">
+              <label class="form-label small mb-1">Año lectivo</label>
+              <select id="filtro-curso-anio" class="form-select form-select-sm">
                 <option value="">Todos</option>
-                <option value="1">Activos</option>
-                <option value="0">Inactivos</option>
               </select>
             </div>
-            <div class="col-sm-2 d-flex gap-1 align-items-end">
-              <button class="btn btn-outline-secondary btn-sm w-100" id="btn-limpiar-curso">
+            <div class="col-sm-3 d-flex gap-1 align-items-end">
+              <button class="btn btn-outline-secondary btn-sm w-100" id="btn-limpiar-cursos">
                 <i class="bi bi-x-lg me-1"></i>Limpiar
               </button>
             </div>
@@ -70,23 +64,32 @@ const CursosView = (() => {
 
     document.getElementById('btn-nuevo-curso').addEventListener('click', () => abrirModal());
     document.getElementById('busq-curso').addEventListener('input', aplicarFiltros);
-    document.getElementById('filtro-curso-turno').addEventListener('change', aplicarFiltros);
     document.getElementById('filtro-curso-estado').addEventListener('change', aplicarFiltros);
-    document.getElementById('btn-limpiar-curso').addEventListener('click', () => {
+    document.getElementById('filtro-curso-anio').addEventListener('change', aplicarFiltros);
+    document.getElementById('btn-limpiar-cursos').addEventListener('click', () => {
       document.getElementById('busq-curso').value = '';
-      document.getElementById('filtro-curso-turno').value = '';
-      document.getElementById('filtro-curso-estado').value = '';
+      document.getElementById('filtro-curso-estado').value = 'activo';
+      document.getElementById('filtro-curso-anio').value = '';
       aplicarFiltros();
     });
 
-    await cargarCursos();
+    cargarCursos();
   };
 
-  /* ── carga desde API ────────────────────────────────────── */
+  /* ── carga desde API ──────────────────────────────────── */
   const cargarCursos = async () => {
     UI.loader('cursos-container');
     try {
-      _todos = await Api.getCursos();
+      _todos = await Api.getCursos();   // ya devuelve todos (activos + inactivos)
+
+      // Poblar select de años únicos
+      const anios = [...new Set(_todos.map(c => c.anio_lectivo))].sort((a,b) => b-a);
+      const anioSel = document.getElementById('filtro-curso-anio');
+      if (anioSel) {
+        anioSel.innerHTML = '<option value="">Todos</option>' +
+          anios.map(a => `<option value="${a}">${a}</option>`).join('');
+      }
+
       aplicarFiltros();
     } catch(e) {
       document.getElementById('cursos-container').innerHTML =
@@ -94,24 +97,25 @@ const CursosView = (() => {
     }
   };
 
-  /* ── filtrado + ordenamiento en cliente ─────────────────── */
+  /* ── filtrado + ordenamiento en cliente ───────────────── */
   const aplicarFiltros = () => {
     const busq   = (document.getElementById('busq-curso')?.value || '').toLowerCase();
-    const turno  = document.getElementById('filtro-curso-turno')?.value || '';
-    const estado = document.getElementById('filtro-curso-estado')?.value;
+    const estado = document.getElementById('filtro-curso-estado')?.value;   // 'activo'|'inactivo'|''
+    const anio   = document.getElementById('filtro-curso-anio')?.value;
 
     let lista = _todos.filter(c => {
-      const matchBusq  = !busq  || c.nombre.toLowerCase().includes(busq);
-      const matchTurno = !turno || titleCase(c.turno) === turno;
-      const matchEst   = estado === '' || estado === undefined
-        ? true
-        : estado === '1' ? c.activo : !c.activo;
-      return matchBusq && matchTurno && matchEst;
+      const matchBusq = !busq ||
+        c.nombre.toLowerCase().includes(busq) ||
+        (c.turno  || '').toLowerCase().includes(busq) ||
+        String(c.anio_lectivo).includes(busq);
+      const matchEst  = estado === '' ? true
+        : estado === 'activo' ? c.activo : !c.activo;
+      const matchAnio = !anio || String(c.anio_lectivo) === anio;
+      return matchBusq && matchEst && matchAnio;
     });
 
-    // Ordenar
     lista = lista.slice().sort((a, b) => {
-      let va = a[_sortBy], vb = b[_sortBy];
+      let va = a[_sortBy] ?? '', vb = b[_sortBy] ?? '';
       if (typeof va === 'string') va = va.toLowerCase();
       if (typeof vb === 'string') vb = vb.toLowerCase();
       return va < vb ? -_sortDir : va > vb ? _sortDir : 0;
@@ -120,12 +124,12 @@ const CursosView = (() => {
     renderTabla(lista);
   };
 
-  /* ── render tabla ───────────────────────────────────────── */
+  /* ── render tabla ─────────────────────────────────────── */
   const renderTabla = (lista) => {
     const container = document.getElementById('cursos-container');
     if (!lista.length) {
       UI.empty('cursos-container',
-        _todos.length ? 'Ningún curso coincide con la búsqueda' : 'No hay cursos registrados',
+        _todos.length ? 'Ningún curso coincide con los filtros' : 'No hay cursos registrados',
         'building');
       return;
     }
@@ -144,21 +148,15 @@ const CursosView = (() => {
               ${th('nivel',        'Nivel')}
               ${th('turno',        'Turno')}
               ${th('anio_lectivo', 'Año lectivo')}
-              <th>Materias</th>
               ${th('activo',       'Estado')}
               <th>Acciones</th>
             </tr></thead>
             <tbody>
-              ${lista.map(c => `<tr class="${!c.activo ? 'table-secondary text-muted' : ''}">
+              ${lista.map(c => `<tr class="${c.activo ? '' : 'text-muted'}">
                 <td><strong>${c.nombre}</strong></td>
                 <td><span class="badge bg-primary">${c.nivel}° año</span></td>
-                <td><span class="badge bg-light text-dark border">${titleCase(c.turno)}</span></td>
+                <td><span class="badge bg-light text-dark border">${c.turno}</span></td>
                 <td>${c.anio_lectivo}</td>
-                <td>
-                  <span class="badge ${c.total_materias > 0 ? 'bg-info text-dark' : 'bg-light text-muted border'}">
-                    ${c.total_materias}
-                  </span>
-                </td>
                 <td>
                   ${c.activo
                     ? '<span class="badge bg-success">Activo</span>'
@@ -166,7 +164,7 @@ const CursosView = (() => {
                 </td>
                 <td>
                   <button class="btn btn-sm btn-outline-primary"
-                          data-editar-curso='${JSON.stringify(c).replace(/'/g, "&#39;")}'>
+                          data-editar-curso='${JSON.stringify(c).replace(/'/g,"&#39;")}'>
                     <i class="bi bi-pencil"></i>
                   </button>
                 </td>
@@ -180,7 +178,7 @@ const CursosView = (() => {
         </div>
       </div>`;
 
-    // Ordenamiento por clic en cabecera
+    // Ordenamiento por columna
     container.querySelectorAll('th[data-sort]').forEach(th => {
       th.addEventListener('click', () => {
         const col = th.dataset.sort;
@@ -198,57 +196,24 @@ const CursosView = (() => {
     });
   };
 
-  /* ── modal crear / editar ───────────────────────────────── */
+  /* ── modal crear / editar ─────────────────────────────── */
   const abrirModal = (curso = null) => {
     const isEditar = !!curso;
     document.getElementById('modal-curso-title').textContent =
       isEditar ? 'Editar Curso' : 'Nuevo Curso';
-    document.getElementById('curso-id').value       = curso?.id || '';
-    document.getElementById('curso-nombre').value   = curso?.nombre || '';
-    document.getElementById('curso-nivel').value    = curso?.nivel || 1;
-    document.getElementById('curso-anio').value     = curso?.anio_lectivo || new Date().getFullYear();
+    document.getElementById('curso-id').value      = curso?.id || '';
+    document.getElementById('curso-nombre').value  = curso?.nombre || '';
+    document.getElementById('curso-nivel').value   = curso?.nivel || 1;
+    document.getElementById('curso-anio').value    = curso?.anio_lectivo || new Date().getFullYear();
     document.getElementById('curso-activo').checked = curso ? curso.activo : true;
     UI.clearAlert('curso-alert');
 
     const turnoSel = document.getElementById('curso-turno');
-    const turnoActual = curso?.turno ? titleCase(curso.turno) : '';
     turnoSel.innerHTML = TURNOS.map(t =>
-      `<option value="${t}" ${turnoActual === t ? 'selected' : ''}>${t}</option>`
+      `<option value="${t}" ${curso?.turno === t ? 'selected' : ''}>${t}</option>`
     ).join('');
 
-    // Mostrar/ocultar aviso de materias al cambiar estado
-    const checkActivo = document.getElementById('curso-activo');
-    const actualizarAviso = () => {
-      const aviso = document.getElementById('curso-aviso-materias');
-      if (!aviso) return;
-      if (isEditar && curso.activo && !checkActivo.checked && curso.total_materias > 0) {
-        aviso.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i>
-          Este curso tiene <strong>${curso.total_materias} materia${curso.total_materias > 1 ? 's' : ''}</strong> asociada${curso.total_materias > 1 ? 's' : ''}.
-          Al desactivarlo no podrás asignarle nuevas materias, pero las existentes quedarán intactas.
-          Para desactivarlo completamente primero reasigná o eliminá las materias.`;
-        aviso.className = 'alert alert-warning small py-2 mt-2 mb-0';
-      } else {
-        aviso.innerHTML = '';
-        aviso.className = 'd-none';
-      }
-    };
-    checkActivo.addEventListener('change', actualizarAviso);
-
     const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-curso'));
-
-    // Insertar div de aviso antes del alert general si no existe
-    const modalBody = document.querySelector('#modal-curso .modal-body');
-    if (!document.getElementById('curso-aviso-materias')) {
-      const div = document.createElement('div');
-      div.id = 'curso-aviso-materias';
-      div.className = 'd-none';
-      const alertEl = document.getElementById('curso-alert');
-      modalBody.insertBefore(div, alertEl);
-    } else {
-      document.getElementById('curso-aviso-materias').className = 'd-none';
-      document.getElementById('curso-aviso-materias').innerHTML = '';
-    }
-
     modal.show();
 
     // cloneNode para evitar acumulación de handlers
@@ -257,20 +222,18 @@ const CursosView = (() => {
     btnOrig.parentNode.replaceChild(btn, btnOrig);
 
     btn.addEventListener('click', async () => {
-      const nombre       = UI.getVal('curso-nombre');
+      const nombre       = UI.getVal('curso-nombre').trim();
       const nivel        = parseInt(UI.getVal('curso-nivel'));
       const turno        = UI.getVal('curso-turno');
       const anio_lectivo = parseInt(UI.getVal('curso-anio'));
+      const activo       = document.getElementById('curso-activo').checked;
 
       if (!nombre || !nivel || !turno || !anio_lectivo) {
         UI.modalAlert('curso-alert', 'Todos los campos son obligatorios');
         return;
       }
 
-      const payload = {
-        nombre, nivel, turno, anio_lectivo,
-        activo: document.getElementById('curso-activo').checked
-      };
+      const payload = { nombre, nivel, turno, anio_lectivo, activo };
 
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...';

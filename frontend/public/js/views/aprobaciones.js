@@ -189,15 +189,19 @@ const AprobacionesView = (() => {
           <button class="btn btn-sm btn-outline-secondary" data-ver-pendiente="${c.id}">
             <i class="bi bi-eye me-1"></i>Ver
           </button>
+          ${App.getUser()?.rol === 'DIRECTIVO' ? `
           <button class="btn btn-sm btn-primary" data-visar="${c.id}"
             data-materia="${c.materia_nombre}" data-fecha="${UI.fecha(c.fecha)}">
             <i class="bi bi-patch-check me-1"></i>Visar
-          </button>
+          </button>` : ''}
         </div>
       </div>
     </div>`;
 
   const abrirModalVisar = (claseId, materia, fecha) => {
+    // Solo el DIRECTIVO puede visar clases
+    if (App.getUser()?.rol !== 'DIRECTIVO') return;
+
     // Resetear contenido del modal
     document.getElementById('visar-clase-id').value = claseId;
     document.getElementById('visar-comentarios').value = '';

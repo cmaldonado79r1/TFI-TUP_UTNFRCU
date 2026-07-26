@@ -271,6 +271,9 @@ const ClasesView = (() => {
   };
 
   const abrirFormClase = async (claseId = null) => {
+    // Solo el DOCENTE puede crear o editar clases
+    if (App.getUser()?.rol !== 'DOCENTE') return;
+
     const modalEl = document.getElementById('modal-clase');
     document.getElementById('modal-clase-title').textContent = claseId ? 'Editar Clase' : 'Nueva Clase';
     const body = document.getElementById('modal-clase-body');

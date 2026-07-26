@@ -74,6 +74,10 @@
         <div class="d-flex align-items-center gap-2">
           <span class="badge bg-light text-dark" id="nav-rol-badge"></span>
           <span class="text-white-50 small" id="nav-user-name"></span>
+          <button class="btn btn-sm btn-outline-light position-relative" id="btn-notificaciones" title="Bandeja de pendientes" style="display:none">
+            <i class="bi bi-bell"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" id="badge-campana" style="font-size:.65rem"></span>
+          </button>
           <button class="btn btn-sm btn-outline-light" id="btn-logout" title="Cerrar sesión">
             <i class="bi bi-box-arrow-right"></i>
           </button>
@@ -113,27 +117,6 @@
       </div>
       <div class="modal-body" id="modal-detalle-body"></div>
       <div class="modal-footer" id="modal-detalle-footer"></div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL NOTIFICACIONES AL INICIAR SESIÓN -->
-<div class="modal fade" id="modal-notificaciones" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow-lg">
-      <div class="modal-header text-white border-0 rounded-top-3" id="notif-header">
-        <div class="d-flex align-items-center gap-2">
-          <i class="bi fs-4" id="notif-icon"></i>
-          <h5 class="modal-title mb-0" id="notif-title"></h5>
-        </div>
-      </div>
-      <div class="modal-body pt-3 pb-2" id="notif-body"></div>
-      <div class="modal-footer border-0 pt-0 gap-2">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Ahora no</button>
-        <button class="btn btn-sm fw-semibold" id="notif-btn-ir" data-bs-dismiss="modal">
-          <i class="bi bi-arrow-right-circle me-1"></i><span id="notif-btn-label">Ir ahora</span>
-        </button>
-      </div>
     </div>
   </div>
 </div>

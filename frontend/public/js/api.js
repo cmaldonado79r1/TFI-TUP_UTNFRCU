@@ -95,6 +95,7 @@ const Api = (() => {
     getClase:        (id)           => get(`/clases/${id}`),
     crearClase:      (body)         => post('/clases', body),
     editarClase:     (id, body)     => put(`/clases/${id}`, body),
+    eliminarClase:   (id)           => del(`/clases/${id}`),
     estadisticasClases: ()          => get('/clases/estadisticas'),
 
     // Temas

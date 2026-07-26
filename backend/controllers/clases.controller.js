@@ -354,4 +354,66 @@ const estadisticas = async (req, res) => {
   }
 };
 
-module.exports = { listarClases, obtenerClase, crearClase, editarClase, estadisticas };
+const eliminarClase = async (req, res) => {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const { id } = req.params;
+    const user = req.user;
+
+    // Solo DOCENTE puede eliminar
+    if (user.rol !== 'DOCENTE') {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Solo el docente puede eliminar clases' });
+    }
+
+    const result = await client.query('SELECT * FROM clases WHERE id = $1', [id]);
+    if (!result.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Clase no encontrada' });
+    }
+    const clase = result.rows[0];
+
+    // Solo puede eliminar sus propias clases
+    if (clase.docente_id !== user.id) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado: la clase pertenece a otro docente' });
+    }
+
+    // Solo se puede eliminar si está en estado CREADO o PENDIENTE
+    if (!['CREADO', 'PENDIENTE'].includes(clase.estado)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: `No se puede eliminar una clase en estado "${clase.estado}". Solo es posible eliminar clases en estado Creado o Pendiente.`
+      });
+    }
+
+    // Eliminar registros dependientes en cascada (temas, actividades, imprevistos)
+    await client.query('DELETE FROM temas       WHERE clase_id = $1', [id]);
+    await client.query('DELETE FROM actividades WHERE clase_id = $1', [id]);
+    await client.query('DELETE FROM imprevistos WHERE clase_id = $1', [id]);
+    await client.query('DELETE FROM clases      WHERE id = $1',       [id]);
+
+    await client.query('COMMIT');
+
+    await registrarAuditoria({
+      usuario_id: user.id,
+      tabla: 'clases',
+      accion: 'DELETE',
+      registro_id: id,
+      datos_anteriores: clase,
+      ip: req.ip,
+      descripcion: `Docente eliminó clase ${id}`
+    });
+
+    res.json({ message: 'Clase eliminada correctamente' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[CLASES] eliminar:', err);
+    res.status(500).json({ error: 'Error al eliminar la clase' });
+  } finally {
+    client.release();
+  }
+};
+
+module.exports = { listarClases, obtenerClase, crearClase, editarClase, eliminarClase, estadisticas };

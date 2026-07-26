@@ -162,11 +162,15 @@ const ClasesView = (() => {
     document.querySelectorAll('[data-editar-clase]').forEach(btn => {
       btn.addEventListener('click', () => abrirFormClase(btn.dataset.editarClase));
     });
+    document.querySelectorAll('[data-eliminar-clase]').forEach(btn => {
+      btn.addEventListener('click', () => confirmarEliminarClase(btn.dataset.eliminarClase));
+    });
   };
 
   const renderFila = (c) => {
     const user = App.getUser();
-    const puedeEditar = user.rol === 'DOCENTE' && c.estado === 'REVISION_REQUERIDA';
+    const puedeEditar    = user.rol === 'DOCENTE' && c.estado === 'REVISION_REQUERIDA';
+    const puedeEliminar  = user.rol === 'DOCENTE' && ['CREADO', 'PENDIENTE'].includes(c.estado);
     return `<tr>
       <td><span class="badge bg-secondary">${c.numero_clase || '—'}</span></td>
       <td>${UI.fecha(c.fecha)}</td>
@@ -179,7 +183,8 @@ const ClasesView = (() => {
       <td>
         <div class="btn-group btn-group-sm">
           <button class="btn btn-outline-primary" data-ver-clase="${c.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>
-          ${puedeEditar ? `<button class="btn btn-outline-warning" data-editar-clase="${c.id}" title="Editar"><i class="bi bi-pencil"></i></button>` : ''}
+          ${puedeEditar   ? `<button class="btn btn-outline-warning" data-editar-clase="${c.id}" title="Editar"><i class="bi bi-pencil"></i></button>` : ''}
+          ${puedeEliminar ? `<button class="btn btn-outline-danger"  data-eliminar-clase="${c.id}" title="Eliminar"><i class="bi bi-trash"></i></button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -478,6 +483,18 @@ const ClasesView = (() => {
         spinner.classList.add('d-none');
       }
     });
+  };
+
+  const confirmarEliminarClase = async (claseId) => {
+    if (App.getUser()?.rol !== 'DOCENTE') return;
+    if (!confirm('¿Estás seguro de que querés eliminar esta clase? Esta acción no se puede deshacer.')) return;
+    try {
+      await Api.eliminarClase(claseId);
+      UI.toast('Clase eliminada correctamente', 'success');
+      cargarClases();
+    } catch(err) {
+      UI.toast(err.message, 'danger');
+    }
   };
 
   const bindRemoveBtns = () => {
